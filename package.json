@@ -13,14 +13,17 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",
+    "@x402/express": "^2.25.0",
     "@x402/hedera": "^2.25.0",
     "dotenv": "^17.4.2",
     "drand-client": "^1.4.2",
+    "express": "^5.2.1",
     "tlock-js": "^0.9.0",
     "viem": "^2.56.3"
   }

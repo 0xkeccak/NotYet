@@ -22,6 +22,15 @@
   blast radius is one account. Pair with spend limits at the service.
 - **Novel cryptography.** tlock is drand's; the application to agent spend authority is
   ours. Not quantum-resistant (BLS/IBE, as drand states).
+- **A physical Ledger device in this build.** The issuer key runs on **Speculos**,
+  Ledger's official emulator — which Ledger explicitly states qualifies a submission in
+  full. The signing path is identical to a hardware device (the on-device confirmation is
+  auto-pressed via the Speculos button API; a real device confirms by hand). Point the
+  same code at a plugged-in device and it signs there instead.
+- **Genuine ENS registration on Sepolia in this code.** Sepolia is mid-ENSv2 migration;
+  `mujahid.eth` was registered via the ENSv2 app (app.ens.dev) and our code reads/writes
+  its records through the ENSv2 resolver. The classic ETHRegistrarController reverts on
+  Sepolia right now (documented in `scripts/ens-register.ts`).
 
 ## Novelty
 

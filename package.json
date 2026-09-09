@@ -15,5 +15,9 @@
   "devDependencies": {
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "drand-client": "^1.4.2",
+    "tlock-js": "^0.9.0"
   }
 }

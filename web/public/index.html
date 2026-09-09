@@ -96,13 +96,16 @@ async function refresh() {
       <div class="small err" id="msg${p.index}"></div></div><div class="row">${right}</div></div>`;
   }).join("");
   document.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => pay(Number(b.dataset.pay)));
+  // re-apply any persistent NOT_YET / error messages (survive the 2s poll re-render)
+  for (const [i, msg] of Object.entries(payMsgs)) { const el = $("msg"+i); if (el) el.innerHTML = '<span class="err">'+msg+'</span>'; }
 }
 
+const payMsgs = {};
 async function pay(index) {
-  $("msg"+index).textContent = "";
+  delete payMsgs[index]; const el0 = $("msg"+index); if (el0) el0.textContent = "";
   const r = await api("/api/pay", { index });
-  if (r.paid) { await refresh(); }
-  else { $("msg"+index).innerHTML = '<span class="err">'+(r.error||"payment failed")+'</span>'; }
+  if (r.paid) { delete payMsgs[index]; await refresh(); }
+  else { payMsgs[index] = r.error || "payment failed"; const el = $("msg"+index); if (el) el.innerHTML = '<span class="err">'+payMsgs[index]+'</span>'; }
 }
 
 $("audit").onclick = async () => {

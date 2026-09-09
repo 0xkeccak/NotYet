@@ -5,6 +5,10 @@
 import { buildSchedule, currentPeriodIndex, canonicalJSON } from "../issuer/schedule.js";
 import { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
 import { roundUnlockMs } from "../sdk/tlock.js";
+import { signSchedule, verifySchedule, issuerAddress } from "../sdk/sign.js";
+import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
+import { generatePrivateKey } from "viem/accounts";
+import type { Receipt } from "../sdk/types.js";
 
 let failures = 0;
 const check = (name: string, cond: boolean) => {
@@ -44,6 +48,40 @@ const v4 = deriveViewKey(master, 4);
 check("view key deterministic", v3a.equals(v3b));
 check("view keys differ per period", !v3a.equals(v4));
 check("view key is 32 bytes", v3a.length === 32);
+
+// --- schedule signing / verification (ENS root of trust) ---
+const issuerKey = generatePrivateKey();
+const signedSchedule = buildSchedule({
+  ensName: "keccak.eth",
+  network: "hedera:testnet",
+  asset: "0.0.0",
+  issuerPubKey: issuerAddress(issuerKey),
+  periodCount: 3,
+  periodLengthSec: PERIOD_SEC,
+  startMs: start,
+  budget: "1000000",
+});
+const signed = await signSchedule(signedSchedule, issuerKey);
+check("valid signature verifies", await verifySchedule(signed));
+
+const tampered = { ...signed, schedule: { ...signed.schedule, periods: signed.schedule.periods.slice(0, 2) } };
+check("tampered schedule fails verify", !(await verifySchedule(tampered)));
+
+const wrongIssuer = { ...signed, schedule: { ...signed.schedule, issuerPubKey: issuerAddress(generatePrivateKey()) } };
+check("wrong issuer fails verify", !(await verifySchedule(wrongIssuer)));
+
+// --- scoped-audit receipts ---
+const receipt: Receipt = { periodIndex: 3, service: "price", amount: "100000", timestampMs: start, resultHash: "0xabc" };
+const v3 = deriveViewKey(master, 3);
+const enc = encryptReceipt(receipt, v3);
+check("receipt decrypts with its view key", JSON.stringify(decryptReceipt(enc, v3)) === JSON.stringify(receipt));
+let scoped = false;
+try {
+  decryptReceipt(enc, deriveViewKey(master, 4));
+} catch {
+  scoped = true;
+}
+check("receipt is NOT readable with another period's key (scoped audit)", scoped);
 
 console.log(`\n${failures === 0 ? "ALL PASS" : failures + " FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);

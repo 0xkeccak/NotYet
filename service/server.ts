@@ -13,7 +13,7 @@ import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactHederaScheme } from "@x402/hedera/exact/server";
 
-const PORT = Number(process.env.PORT ?? 4021);
+const PORT = Number(process.env.SERVICE_PORT ?? 4021); // fixed internal port (web takes $PORT)
 const NETWORK = process.env.HEDERA_NETWORK === "mainnet" ? "hedera:mainnet" : "hedera:testnet";
 const MERCHANT = process.env.HEDERA_MERCHANT_ID;
 const FACILITATOR = process.env.BLOCKY402_URL ?? "https://api.testnet.blocky402.com";

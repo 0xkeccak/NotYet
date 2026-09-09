@@ -18,10 +18,14 @@ import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
 import { payX402 } from "../sdk/pay.js";
 import type { Receipt } from "../sdk/types.js";
 
-const PORT = Number(process.env.WEB_PORT ?? 4040);
+const PORT = Number(process.env.PORT ?? process.env.WEB_PORT ?? 4040); // Railway sets PORT
 const SERVICE_URL = process.env.SERVICE_URL ?? "http://localhost:4021/price";
 const payerId = process.env.HEDERA_PAYER_ID!;
 const payerKey = process.env.HEDERA_PAYER_KEY!;
+
+// Light global cooldown on issue so a public URL can't drain the faucet-funded payer.
+let lastIssueMs = 0;
+const ISSUE_COOLDOWN_MS = Number(process.env.ISSUE_COOLDOWN_MS ?? 60_000);
 
 const client = () =>
   Client.forTestnet().setOperator(AccountId.fromString(payerId), PrivateKey.fromStringECDSA(payerKey.replace(/^0x/, "")));
@@ -44,6 +48,9 @@ app.use(express.json());
 app.use(express.static(new URL("./public", import.meta.url).pathname));
 
 app.post("/api/issue", async (req: Request, res: Response) => {
+  const wait = lastIssueMs + ISSUE_COOLDOWN_MS - Date.now();
+  if (wait > 0) return res.status(429).json({ error: `cooling down — try again in ${Math.ceil(wait / 1000)}s` });
+  lastIssueMs = Date.now();
   try {
     const count = Math.min(Number(req.body?.count ?? 3), 5);
     const c = client();

@@ -16,15 +16,19 @@
     "./sdk/pay": "./sdk/pay.ts"
   },
   "scripts": {
+    "start": "tsx start.ts",
+    "service": "tsx service/server.ts",
+    "web": "tsx web/server.ts",
+    "demo": "tsx scripts/full-demo.ts",
     "gate": "tsx scripts/day1-gate.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "tsx": "^4.19.2",
     "@ensdomains/ensjs": "^4.3.1",
     "@ledgerhq/hw-app-eth": "^7.8.17",
     "@ledgerhq/hw-transport-node-speculos-http": "^6.36.7",

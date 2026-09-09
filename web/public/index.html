@@ -3,120 +3,320 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Notyet</title>
+<title>Notyet — scheduled agent spend authority</title>
+<meta name="description" content="Scheduled agent spend authority where the key doesn't exist until its time. Timelock encryption (drand/tlock) + x402 on Hedera, root-of-trust on ENS, signed on Ledger." />
 <style>
-  :root { --bg:#0b0e14; --panel:#131824; --line:#232a3a; --txt:#e6e9ef; --dim:#8b93a7;
-          --accent:#6ea8fe; --lock:#c9a227; --ready:#4ea1ff; --paid:#3ecf8e; --err:#ff6b6b; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-         background:var(--bg); color:var(--txt); }
-  .wrap { max-width:920px; margin:0 auto; padding:32px 20px 80px; }
-  h1 { font-size:34px; margin:0 0 6px; letter-spacing:-.5px; }
-  .tag { color:var(--accent); font-weight:600; }
-  .sub { color:var(--dim); margin:0 0 4px; }
-  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:16px 0; }
-  button { background:var(--accent); color:#08131f; border:0; border-radius:8px; padding:9px 16px;
-           font-weight:650; cursor:pointer; font-size:14px; }
-  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .period { border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0;
-            display:flex; justify-content:space-between; align-items:center; gap:14px; }
-  .badge { font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.5px; }
-  .locked { background:rgba(201,162,39,.15); color:var(--lock); }
-  .ready  { background:rgba(78,161,255,.15); color:var(--ready); }
-  .paid   { background:rgba(62,207,142,.15); color:var(--paid); }
-  a { color:var(--accent); }
-  .small { font-size:13px; color:var(--dim); }
-  .out { white-space:pre-wrap; font-family:ui-monospace,monospace; font-size:12.5px; color:var(--dim);
-         background:#0d1119; border:1px solid var(--line); border-radius:8px; padding:12px; margin-top:10px; max-height:200px; overflow:auto; }
-  .err { color:var(--err); font-weight:600; }
-  input { background:#0d1119; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:8px 10px; width:70px; font-family:ui-monospace,monospace; }
+  :root{
+    --bg:#080a10; --bg2:#0c0f17; --panel:#10141e; --panel2:#141926;
+    --line:#20273a; --line2:#2b344b;
+    --txt:#eef1f7; --dim:#9aa3ba; --faint:#6b7488;
+    --amber:#e6a93c; --blue:#6ea8fe; --green:#3ecf8e; --red:#ff6b6b; --violet:#a98bff;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);
+       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+       background-image:radial-gradient(900px 500px at 78% -8%,rgba(110,168,254,.10),transparent 60%),
+                        radial-gradient(760px 460px at 12% 4%,rgba(230,169,60,.07),transparent 55%);}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  .mono{font-family:var(--mono)}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.12;margin:0}
+  section{padding:64px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin:0 0 14px}
+  .lead{color:var(--dim);font-size:18px;max-width:70ch}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(10px);
+      background:rgba(8,10,16,.72);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.02em}
+  .brand .dot{font-size:18px}
+  .navlinks{display:flex;gap:22px;font-size:14px}
+  .navlinks a{color:var(--dim)} .navlinks a:hover{color:var(--txt);text-decoration:none}
+  .btn{display:inline-block;background:var(--blue);color:#06101f;border:0;border-radius:9px;
+       padding:10px 17px;font-weight:650;font-size:14px;cursor:pointer;font-family:var(--sans)}
+  .btn:hover{filter:brightness(1.07)} .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--line2)}
+  .btn.amber{background:var(--amber);color:#160f02}
+
+  /* hero */
+  .hero{padding:74px 0 60px;border-top:0}
+  .hero h1{font-size:clamp(40px,7vw,72px);font-weight:760}
+  .hero h1 .g{background:linear-gradient(92deg,#fff 40%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tagline{font-family:var(--mono);color:var(--amber);margin:20px 0 0;font-size:15px}
+  .herosub{margin:22px 0 30px;font-size:19px;color:var(--dim);max-width:64ch}
+  .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .beacon{margin-top:34px;display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);
+          font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:7px 14px;background:var(--panel)}
+  .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(62,207,142,.6);animation:pulse 3s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(62,207,142,.5)}70%{box-shadow:0 0 0 9px rgba(62,207,142,0)}100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}}
+
+  /* terminal card */
+  .term{margin-top:30px;background:#0a0d14;border:1px solid var(--line2);border-radius:12px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(0,0,0,.8)}
+  .term .bar{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .term .bar i{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .term pre{margin:0;padding:18px;font-family:var(--mono);font-size:13.5px;line-height:1.75;overflow-x:auto}
+  .c-dim{color:var(--dim)} .c-red{color:var(--red)} .c-green{color:var(--green)} .c-amber{color:var(--amber)} .c-blue{color:var(--blue)}
+
+  /* grids */
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px 22px;transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .card h3{font-size:17px;margin-bottom:8px}
+  .card p{margin:0;color:var(--dim);font-size:14.5px}
+  .kicker{font-family:var(--mono);font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em}
+
+  .pillars .card{display:flex;gap:14px;align-items:flex-start}
+  .pillars .ic{font-size:22px;line-height:1;margin-top:2px}
+  .badge{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.06em}
+  .b-amber{background:rgba(230,169,60,.14);color:var(--amber)} .b-blue{background:rgba(110,168,254,.14);color:var(--blue)}
+  .b-green{background:rgba(62,207,142,.14);color:var(--green)}
+
+  /* incidents */
+  .inc{border-left:2px solid var(--red)}
+  .inc .amt{font-family:var(--mono);color:var(--red);font-weight:700}
+  .inc .lesson{margin-top:9px;color:var(--txt);font-size:13.5px}
+  .inc .src{margin-top:8px;font-size:12px}
+
+  /* demo */
+  .demo .card{padding:0;overflow:hidden}
+  .demo .head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .demo .body{padding:18px 20px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input{background:#0a0d14;border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:8px 10px;width:64px;font-family:var(--mono)}
+  .period{border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:11px 0;display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .period.locked{background:linear-gradient(90deg,rgba(230,169,60,.05),transparent 60%)}
+  .period.paid{background:linear-gradient(90deg,rgba(62,207,142,.05),transparent 60%)}
+  .small{font-size:13px;color:var(--dim)}
+  .out{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;color:var(--dim);background:#0a0d14;border:1px solid var(--line);border-radius:9px;padding:13px;margin-top:12px;max-height:210px;overflow:auto}
+  .err{color:var(--red);font-weight:600}
+  .st{display:flex;flex-direction:column;gap:5px}
+
+  footer{padding:44px 0 70px;border-top:1px solid var(--line);color:var(--dim);font-size:14px}
+  .tracks{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:5px 12px;color:var(--txt)}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:14px}
+  .steps li{counter-increment:s;display:flex;gap:14px;align-items:flex-start}
+  .steps li::before{content:counter(s);flex:0 0 28px;height:28px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);
+       display:grid;place-items:center;font-family:var(--mono);font-size:13px;color:var(--amber)}
+  .steps .t{font-weight:600} .steps .d{color:var(--dim);font-size:14px}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Notyet <span class="small mono">⏳</span></h1>
-  <p class="sub">Scheduled agent spend authority where the key doesn't exist until its time.</p>
-  <p class="sub"><span class="tag">Tuesday's key does not exist until Tuesday.</span> · drand tlock · Hedera x402 · HCS audit log</p>
+<nav><div class="wrap nav">
+  <div class="brand"><span class="dot">⏳</span> Notyet</div>
+  <div class="navlinks">
+    <a href="#how">How</a><a href="#why">Why</a><a href="#demo">Live demo</a><a href="#sdk">SDK</a>
+    <a href="https://github.com/0xkeccak/NotYet" target="_blank">GitHub ↗</a>
+  </div>
+</div></nav>
 
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
-      <div class="row">
-        periods <input id="count" type="number" value="3" min="1" max="5" />
-        <button id="issue">Issue schedule</button>
+<header class="wrap hero">
+  <p class="eyebrow">ETHOnline 2026 · Hedera · Ledger · ENS</p>
+  <h1>Scheduled agent spend authority<br><span class="g">that doesn't exist yet.</span></h1>
+  <p class="herosub">Give an autonomous agent a budget on a schedule — where each period's key is
+    <b style="color:var(--txt)">encrypted to the future</b> and cannot be used, leaked, or coerced open before its
+    time. Not for the agent. Not for you.</p>
+  <div class="cta">
+    <a class="btn" href="#demo">Try the live demo</a>
+    <a class="btn ghost" href="#how">How it works</a>
+  </div>
+  <p class="tagline">// Tuesday's key does not exist until Tuesday.</p>
+  <div class="beacon"><span class="pulse"></span> drand beacon · round <span id="round" class="mono" style="color:var(--txt)">…</span> · +1 every 3s</div>
+
+  <div class="term">
+    <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
+      <span class="small mono" style="margin-left:8px">agent · period 1, attempting period 3</span></div>
+    <pre><span class="c-dim">$ agent.unlock(period=3)</span>
+<span class="c-red">Error: NOT_YET — key for period 3 does not exist until round 1234567</span>
+<span class="c-dim"># not a permission check. the decryption key has not been</span>
+<span class="c-dim"># published by drand yet. it exists for no one.</span>
+
+<span class="c-dim">$ # …the clock reaches period 3's round…</span>
+<span class="c-dim">$ agent.unlock(period=3)</span>
+<span class="c-green">✓ key unlocked · paying x402 service on Hedera · settled ✓</span></pre>
+  </div>
+</header>
+
+<section id="problem">
+  <div class="wrap">
+    <p class="eyebrow">The problem</p>
+    <h2>Every agent scheduler is a server holding every future key.</h2>
+    <p class="lead" style="margin-top:14px">Autonomous agents need authority on a schedule — daily budgets, per-shift credentials, windowed signing. Today there are two ways to give it, both broken:</p>
+    <div class="grid g2" style="margin-top:26px">
+      <div class="card"><span class="kicker">Approach A</span><h3>Hand it everything up front</h3>
+        <p>A compromised or prompt-injected agent burns the whole month in an hour. One bad instruction, total loss.</p></div>
+      <div class="card"><span class="kicker">Approach B</span><h3>A server releases keys just-in-time</h3>
+        <p>Cron, a secrets manager — something holds every future key. It's the honeypot, the single point of failure, and the coercion target.</p></div>
+    </div>
+    <p class="lead" style="margin-top:22px">Session keys solve <i>expiry</i> — authority can end. <b style="color:var(--txt)">Nothing solves <i>start</i>.</b> Authority always exists the moment it's issued. So we deleted the server.</p>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>Encrypt each key to a moment in time.</h2>
+    <p class="lead" style="margin-top:14px">Each period's spend key is timelock-encrypted (tlock) to a future round of the drand beacon — a threshold network publishing a signature every 3 seconds. That signature <i>is</i> the decryption key, and it does not exist until the round happens. The owner pre-issues the whole schedule, hands the agent every <i>locked</i> key, and walks away.</p>
+    <div class="grid g2 pillars" style="margin-top:28px">
+      <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:9px">The lock itself</h3><p>Keys are born on schedule. Decrypt early and it throws <span class="mono">NOT_YET</span> — for anyone, including the owner.</p></div></div>
+      <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet" style="background:rgba(169,139,255,.14);color:var(--violet)">Ledger</span><h3 style="margin-top:9px">Root of authority</h3><p>The issuer key lives on the device and signs the schedule with one on-device confirmation. The agent never holds it.</p></div></div>
+      <div class="card"><span class="ic">🌐</span><div><span class="badge b-blue">ENS</span><h3 style="margin-top:9px">Root of trust</h3><p>The signed schedule + issuer address live on an ENS name. The agent reads its rules there and <b style="color:var(--txt)">refuses</b> if the signature doesn't verify.</p></div></div>
+      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:9px">Money + audit log</h3><p>One funded account per period (a ledger-enforced cap), x402 payments via Blocky402, and an HCS log of ciphertexts + encrypted receipts.</p></div></div>
+    </div>
+    <p class="small" style="margin-top:20px">Two chains, no bridge: ENS on Sepolia <i>names</i> the agent and holds its rules; Hedera holds the money. The ENS record just points across.</p>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <p class="eyebrow">Why it matters</p>
+    <h2>Every one of these was a key that existed before it was needed.</h2>
+    <div class="grid g3" style="margin-top:26px" id="incidents"></div>
+    <p class="small" style="margin-top:18px">Real, reported incidents. Notyet's keys don't exist before their time — so there's nothing to drain, leak, or coerce early.</p>
+  </div>
+</section>
+
+<section id="usecases">
+  <div class="wrap">
+    <p class="eyebrow">Who it's for</p>
+    <h2>Pre-commit the month. Walk away. Nothing can be pulled forward.</h2>
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card"><h3>DAO / fund → trading bot</h3><p>A daily budget the bot can't front-run. Hacked on day 3 → it loses one day, not the treasury.</p></div>
+      <div class="card"><h3>Company → procurement agent</h3><p>Finance pre-signs the month on Ledger and leaves. No standing key for anyone to steal.</p></div>
+      <div class="card"><h3>Research fleet → paid APIs</h3><p>Each shift gets one x402 key; a leaked key dies at shift end. Every call logged to HCS.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" class="demo">
+  <div class="wrap">
+    <p class="eyebrow">Live demo · Hedera testnet</p>
+    <h2>Issue a schedule. Watch a key refuse to exist.</h2>
+    <p class="lead" style="margin-top:14px">This runs for real: each period gets a funded Hedera account and a key timelocked to a drand round. Try a locked period → <span class="mono">NOT_YET</span>. When its round arrives → unlock, pay a real x402 service, settle on HashScan.</p>
+
+    <div class="card" style="margin-top:24px">
+      <div class="head">
+        <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
+        <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn" id="issue">Issue schedule</button></div>
       </div>
+      <div class="body"><div id="issueOut" class="out" style="display:none"></div></div>
     </div>
-    <div id="issueOut" class="out" style="display:none"></div>
-  </div>
 
-  <div class="card">
-    <b>2 · Agent</b> <span class="small">— each period unlocks itself on its drand round. Try early → NOT_YET.</span>
-    <div id="timeline"></div>
-  </div>
-
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <div><b>3 · Audit</b> <span class="small">— one period's view key decrypts that period's receipts, nothing else</span></div>
-      <div class="row">period <input id="auditIdx" type="number" value="0" min="0" max="4" /><button class="ghost" id="audit">Decrypt</button></div>
+    <div class="card" style="margin-top:16px">
+      <div class="head"><div><b>2 · Agent</b> <span class="small">— each period unlocks on its drand round. Try early → NOT_YET.</span></div></div>
+      <div class="body"><div id="timeline"><p class="small">No schedule yet — click Issue.</p></div></div>
     </div>
-    <div id="auditOut" class="out" style="display:none"></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="head">
+        <div><b>3 · Audit</b> <span class="small">— one period's view key decrypts that period's receipts, nothing else</span></div>
+        <div class="row">period <input id="auditIdx" type="number" value="0" min="0" max="4"/><button class="btn ghost" id="audit">Decrypt</button></div>
+      </div>
+      <div class="body"><div id="auditOut" class="out" style="display:none"></div></div>
+    </div>
   </div>
-</div>
+</section>
+
+<section id="sdk">
+  <div class="wrap">
+    <p class="eyebrow">For builders</p>
+    <h2>Any agent integrates in a few lines.</h2>
+    <div class="term" style="margin-top:22px">
+      <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
+        <span class="small mono" style="margin-left:8px">agent/loop.ts</span></div>
+      <pre><span class="c-violet" style="color:var(--violet)">import</span> { resolveSchedule } <span class="c-violet" style="color:var(--violet)">from</span> <span class="c-green">"notyet/agent/resolve"</span>
+<span class="c-violet" style="color:var(--violet)">import</span> { decryptCiphertext } <span class="c-violet" style="color:var(--violet)">from</span> <span class="c-green">"notyet/sdk/tlock"</span>
+<span class="c-violet" style="color:var(--violet)">import</span> { payX402 } <span class="c-violet" style="color:var(--violet)">from</span> <span class="c-green">"notyet/sdk/pay"</span>
+
+<span class="c-dim">// read the rules from ENS and verify the issuer's signature</span>
+<span class="c-blue">const</span> schedule = <span class="c-violet" style="color:var(--violet)">await</span> resolveSchedule(rpc, <span class="c-green">"keccak.eth"</span>)
+
+<span class="c-dim">// each period: unlock (throws NOT_YET before its round) then pay</span>
+<span class="c-blue">const</span> key = (<span class="c-violet" style="color:var(--violet)">await</span> decryptCiphertext(ciphertext)).toString()
+<span class="c-violet" style="color:var(--violet)">await</span> payX402(serviceUrl, { accountId, privateKey: key })</pre>
+    </div>
+  </div>
+</section>
+
+<footer><div class="wrap">
+  <div class="brand"><span class="dot">⏳</span> Notyet</div>
+  <p style="margin:12px 0 0;max-width:60ch">Scheduled agent spend authority where the key doesn't exist until its time. Built for ETHOnline 2026.</p>
+  <div class="tracks">
+    <span class="chip">⚡ Hedera — AI &amp; Agentic Payments</span>
+    <span class="chip">🔑 Ledger — AI Agents</span>
+    <span class="chip">🌐 ENSv2 — Best Use</span>
+  </div>
+  <p class="small"><a href="https://github.com/0xkeccak/NotYet" target="_blank">GitHub</a> · Root of trust: <span class="mono">mujahid.eth</span> (Sepolia) · Payments settle on <a href="https://hashscan.io/testnet" target="_blank">HashScan</a> · See <a href="https://github.com/0xkeccak/NotYet/blob/main/LIMITS.md" target="_blank">honest claims</a>.</p>
+</div></footer>
 
 <script>
-const $ = (id) => document.getElementById(id);
-const api = (path, body) => fetch(path, body ? { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body) } : {}).then(r=>r.json());
+const $=(id)=>document.getElementById(id);
+const api=(p,b)=>fetch(p,b?{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)}:{}).then(r=>r.json());
 
-$("issue").onclick = async () => {
-  $("issue").disabled = true; $("issue").textContent = "Issuing…";
-  $("issueOut").style.display = "block"; $("issueOut").textContent = "creating period accounts, funding, timelocking, posting to HCS…";
-  try {
-    const r = await api("/api/issue", { count: Number($("count").value) });
-    if (r.error) throw new Error(r.error);
-    $("issueOut").textContent = "HCS topic " + r.topicId + " — " + r.count + " periods locked\n" +
-      r.periods.map(p => `  period ${p.index}: account ${p.accountId}, round ${p.round}`).join("\n");
-  } catch(e){ $("issueOut").innerHTML = '<span class="err">'+e.message+'</span>'; }
-  $("issue").disabled = false; $("issue").textContent = "Issue schedule";
+// live drand round ticker (quicknet: genesis 1692803367, 3s period) — client-side, no network
+const GENESIS=1692803367, PERIOD=3;
+function tickRound(){const r=Math.floor((Date.now()/1000-GENESIS)/PERIOD)+1;$("round").textContent=r.toLocaleString();}
+tickRound(); setInterval(tickRound,3000);
+
+// incidents
+const INC=[
+ {amt:"~$175K",t:"Grok / Bankr wallet drain",d:"May 2026",l:"A gifted NFT silently unlocked transfer permissions; a Morse-code message the bot decoded ran as an authenticated instruction.",s:"OECD.AI",u:"https://oecd.ai/en/incidents/2026-05-04-4a73"},
+ {amt:"~$250K",t:"Lobstar Wilde trading bot",d:"Feb 2026",l:"Meant to send a small tip, sent its entire holdings — misread a plain-language instruction and executed before anyone could stop it.",s:"Stacker",u:"https://kvia.com/stacker-personal-finance-investing/2026/08/28/what-happens-to-your-money-if-your-ai-trading-agent-makes-a-mistake/"},
+ {amt:"~$500K",t:"Malicious LLM routers",d:"Apr 2026",l:"26 routers secretly injected tool calls, stole credentials and drained a client's wallet.",s:"CoinDesk",u:"https://www.coindesk.com/tech/2026/04/13/ai-agents-are-set-to-power-crypto-payments-but-a-hidden-flaw-could-expose-wallets"},
+ {amt:"29M secrets",t:"Leaked on GitHub in 2025",d:"+34% YoY",l:"64% of credentials leaked in 2022 were still valid in 2026. Long-lived keys never expire and pile up.",s:"Help Net Security",u:"https://www.helpnetsecurity.com/2026/04/14/gitguardian-ai-agents-credentials-leak/"},
+ {amt:"1 key",t:"US Treasury breach",d:"2024",l:"A single leaked BeyondTrust API key bypassed millions in security spend and reached Treasury systems.",s:"Help Net Security",u:"https://www.helpnetsecurity.com/2026/04/14/gitguardian-ai-agents-credentials-leak/"},
+ {amt:"282 apps",t:"iOS apps leaking LLM keys",d:"Jun 2026",l:"API keys shipped in network traffic, harvestable at scale.",s:"The Hacker News",u:"https://thehackernews.com/2026/06/282-ios-apps-found-leaking-llm-api-keys.html"},
+];
+$("incidents").innerHTML=INC.map(i=>`<div class="card inc"><div class="row" style="justify-content:space-between"><span class="amt">${i.amt}</span><span class="kicker">${i.d}</span></div>
+  <h3 style="margin-top:8px;font-size:15.5px">${i.t}</h3><p class="lesson">${i.l}</p><p class="src"><a href="${i.u}" target="_blank">${i.s} ↗</a></p></div>`).join("");
+
+// ---- live demo ----
+$("issue").onclick=async()=>{
+  $("issue").disabled=true;$("issue").textContent="Issuing…";
+  $("issueOut").style.display="block";$("issueOut").textContent="creating period accounts, funding, timelocking, posting to HCS…";
+  try{const r=await api("/api/issue",{count:Number($("count").value)});if(r.error)throw new Error(r.error);
+    $("issueOut").textContent="HCS topic "+r.topicId+" — "+r.count+" periods locked\n"+r.periods.map(p=>`  period ${p.index}: account ${p.accountId}, round ${p.round}`).join("\n");
+  }catch(e){$("issueOut").innerHTML='<span class="err">'+e.message+'</span>';}
+  $("issue").disabled=false;$("issue").textContent="Issue schedule";
 };
-
-async function refresh() {
-  const s = await api("/api/status");
-  if (!s.periods || !s.periods.length) { $("timeline").innerHTML = '<p class="small">No schedule yet — click Issue.</p>'; return; }
-  $("timeline").innerHTML = s.periods.map(p => {
-    const badge = `<span class="badge ${p.state}">${p.state}</span>`;
-    const acct = `<a class="small mono" href="${p.hashscanAccount}" target="_blank">${p.accountId}</a>`;
+const payMsgs={};
+async function refresh(){
+  const s=await api("/api/status");
+  if(!s.periods||!s.periods.length){$("timeline").innerHTML='<p class="small">No schedule yet — click Issue.</p>';return;}
+  $("timeline").innerHTML=s.periods.map(p=>{
+    const cls=p.state==="paid"?"paid":p.state==="locked"?"locked":"";
+    const badge=p.state==="paid"?'<span class="badge b-green">paid</span>':p.state==="ready"?'<span class="badge b-blue">ready</span>':'<span class="badge b-amber">locked</span>';
+    const acct=`<a class="small mono" href="${p.hashscanAccount}" target="_blank">${p.accountId}</a>`;
     let right;
-    if (p.state === "paid") right = `<a class="small" href="${p.paid.hashscan}" target="_blank">settlement ↗</a>`;
-    else if (p.state === "ready") right = `<button data-pay="${p.index}">Unlock &amp; pay</button>`;
-    else right = `<button class="ghost" data-pay="${p.index}">Try early</button> <span class="small">unlocks in ${p.secondsToUnlock}s</span>`;
-    return `<div class="period"><div>${badge} &nbsp; period ${p.index} &nbsp; ${acct} <span class="small">· round ${p.round}</span>
+    if(p.state==="paid")right=`<a class="small" href="${p.paid.hashscan}" target="_blank">settlement ↗</a>`;
+    else if(p.state==="ready")right=`<button class="btn" data-pay="${p.index}">Unlock &amp; pay</button>`;
+    else right=`<button class="btn ghost" data-pay="${p.index}">Try early</button> <span class="small">unlocks in ${p.secondsToUnlock}s</span>`;
+    return `<div class="period ${cls}"><div class="st"><div>${badge} &nbsp; period ${p.index} &nbsp; ${acct} <span class="small">· round ${p.round}</span></div>
       <div class="small err" id="msg${p.index}"></div></div><div class="row">${right}</div></div>`;
   }).join("");
-  document.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => pay(Number(b.dataset.pay)));
-  // re-apply any persistent NOT_YET / error messages (survive the 2s poll re-render)
-  for (const [i, msg] of Object.entries(payMsgs)) { const el = $("msg"+i); if (el) el.innerHTML = '<span class="err">'+msg+'</span>'; }
+  document.querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>pay(Number(b.dataset.pay)));
+  for(const [i,m] of Object.entries(payMsgs)){const el=$("msg"+i);if(el)el.innerHTML='<span class="err">'+m+'</span>';}
 }
-
-const payMsgs = {};
-async function pay(index) {
-  delete payMsgs[index]; const el0 = $("msg"+index); if (el0) el0.textContent = "";
-  const r = await api("/api/pay", { index });
-  if (r.paid) { delete payMsgs[index]; await refresh(); }
-  else { payMsgs[index] = r.error || "payment failed"; const el = $("msg"+index); if (el) el.innerHTML = '<span class="err">'+payMsgs[index]+'</span>'; }
+async function pay(index){
+  delete payMsgs[index];const e0=$("msg"+index);if(e0)e0.textContent="";
+  const r=await api("/api/pay",{index});
+  if(r.paid){delete payMsgs[index];await refresh();}
+  else{payMsgs[index]=r.error||"payment failed";const el=$("msg"+index);if(el)el.innerHTML='<span class="err">'+payMsgs[index]+'</span>';}
 }
-
-$("audit").onclick = async () => {
-  $("auditOut").style.display = "block"; $("auditOut").textContent = "decrypting…";
-  const r = await api("/api/audit", { index: Number($("auditIdx").value) });
-  if (r.error) { $("auditOut").innerHTML = '<span class="err">'+r.error+'</span>'; return; }
-  $("auditOut").textContent = `period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n` +
-    r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n") + `\n\nscoped: ${r.scopedProof}`;
+$("audit").onclick=async()=>{
+  $("auditOut").style.display="block";$("auditOut").textContent="decrypting…";
+  const r=await api("/api/audit",{index:Number($("auditIdx").value)});
+  if(r.error){$("auditOut").innerHTML='<span class="err">'+r.error+'</span>';return;}
+  $("auditOut").textContent=`period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n`+r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n")+`\n\nscoped: ${r.scopedProof}`;
 };
-
-refresh(); setInterval(refresh, 2000);
+refresh();setInterval(refresh,2000);
 </script>
 </body>
 </html>

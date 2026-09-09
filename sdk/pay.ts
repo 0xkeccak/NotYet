@@ -30,7 +30,11 @@ export async function payX402(url: string, cred: SpendCredentials): Promise<PayR
     PrivateKey.fromStringECDSA(cred.privateKey.replace(/^0x/, "")),
     { network },
   );
-  const client = new x402HTTPClient(new x402Client().register("hedera:*", new ExactHederaScheme(signer)));
+  const core = new x402Client().register("hedera:*", new ExactHederaScheme(signer));
+  // The agent's real spend cap is the period budget in its Hedera account, not the
+  // client library's default $1/asset guard — allow the configured asset through.
+  core.setSpendControls({ allowedAssets: true });
+  const client = new x402HTTPClient(core);
 
   const first = await fetch(url);
   if (first.status !== 402) {

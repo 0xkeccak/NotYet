@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Notyet</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#131824; --line:#232a3a; --txt:#e6e9ef; --dim:#8b93a7;
+          --accent:#6ea8fe; --lock:#c9a227; --ready:#4ea1ff; --paid:#3ecf8e; --err:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--txt); }
+  .wrap { max-width:920px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:34px; margin:0 0 6px; letter-spacing:-.5px; }
+  .tag { color:var(--accent); font-weight:600; }
+  .sub { color:var(--dim); margin:0 0 4px; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:16px 0; }
+  button { background:var(--accent); color:#08131f; border:0; border-radius:8px; padding:9px 16px;
+           font-weight:650; cursor:pointer; font-size:14px; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .period { border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0;
+            display:flex; justify-content:space-between; align-items:center; gap:14px; }
+  .badge { font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; text-transform:uppercase; letter-spacing:.5px; }
+  .locked { background:rgba(201,162,39,.15); color:var(--lock); }
+  .ready  { background:rgba(78,161,255,.15); color:var(--ready); }
+  .paid   { background:rgba(62,207,142,.15); color:var(--paid); }
+  a { color:var(--accent); }
+  .small { font-size:13px; color:var(--dim); }
+  .out { white-space:pre-wrap; font-family:ui-monospace,monospace; font-size:12.5px; color:var(--dim);
+         background:#0d1119; border:1px solid var(--line); border-radius:8px; padding:12px; margin-top:10px; max-height:200px; overflow:auto; }
+  .err { color:var(--err); font-weight:600; }
+  input { background:#0d1119; border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:8px 10px; width:70px; font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notyet <span class="small mono">⏳</span></h1>
+  <p class="sub">Scheduled agent spend authority where the key doesn't exist until its time.</p>
+  <p class="sub"><span class="tag">Tuesday's key does not exist until Tuesday.</span> · drand tlock · Hedera x402 · HCS audit log</p>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
+      <div class="row">
+        periods <input id="count" type="number" value="3" min="1" max="5" />
+        <button id="issue">Issue schedule</button>
+      </div>
+    </div>
+    <div id="issueOut" class="out" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <b>2 · Agent</b> <span class="small">— each period unlocks itself on its drand round. Try early → NOT_YET.</span>
+    <div id="timeline"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div><b>3 · Audit</b> <span class="small">— one period's view key decrypts that period's receipts, nothing else</span></div>
+      <div class="row">period <input id="auditIdx" type="number" value="0" min="0" max="4" /><button class="ghost" id="audit">Decrypt</button></div>
+    </div>
+    <div id="auditOut" class="out" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = (path, body) => fetch(path, body ? { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body) } : {}).then(r=>r.json());
+
+$("issue").onclick = async () => {
+  $("issue").disabled = true; $("issue").textContent = "Issuing…";
+  $("issueOut").style.display = "block"; $("issueOut").textContent = "creating period accounts, funding, timelocking, posting to HCS…";
+  try {
+    const r = await api("/api/issue", { count: Number($("count").value) });
+    $("issueOut").textContent = "HCS topic " + r.topicId + " — " + r.count + " periods locked\n" +
+      r.periods.map(p => `  period ${p.index}: account ${p.accountId}, round ${p.round}`).join("\n");
+  } catch(e){ $("issueOut").innerHTML = '<span class="err">'+e.message+'</span>'; }
+  $("issue").disabled = false; $("issue").textContent = "Issue schedule";
+};
+
+async function refresh() {
+  const s = await api("/api/status");
+  if (!s.periods || !s.periods.length) { $("timeline").innerHTML = '<p class="small">No schedule yet — click Issue.</p>'; return; }
+  $("timeline").innerHTML = s.periods.map(p => {
+    const badge = `<span class="badge ${p.state}">${p.state}</span>`;
+    const acct = `<a class="small mono" href="${p.hashscanAccount}" target="_blank">${p.accountId}</a>`;
+    let right;
+    if (p.state === "paid") right = `<a class="small" href="${p.paid.hashscan}" target="_blank">settlement ↗</a>`;
+    else if (p.state === "ready") right = `<button data-pay="${p.index}">Unlock &amp; pay</button>`;
+    else right = `<button class="ghost" data-pay="${p.index}">Try early</button> <span class="small">unlocks in ${p.secondsToUnlock}s</span>`;
+    return `<div class="period"><div>${badge} &nbsp; period ${p.index} &nbsp; ${acct} <span class="small">· round ${p.round}</span>
+      <div class="small err" id="msg${p.index}"></div></div><div class="row">${right}</div></div>`;
+  }).join("");
+  document.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => pay(Number(b.dataset.pay)));
+}
+
+async function pay(index) {
+  $("msg"+index).textContent = "";
+  const r = await api("/api/pay", { index });
+  if (r.paid) { await refresh(); }
+  else { $("msg"+index).innerHTML = '<span class="err">'+(r.error||"payment failed")+'</span>'; }
+}
+
+$("audit").onclick = async () => {
+  $("auditOut").style.display = "block"; $("auditOut").textContent = "decrypting…";
+  const r = await api("/api/audit", { index: Number($("auditIdx").value) });
+  if (r.error) { $("auditOut").innerHTML = '<span class="err">'+r.error+'</span>'; return; }
+  $("auditOut").textContent = `period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n` +
+    r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n") + `\n\nscoped: ${r.scopedProof}`;
+};
+
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>

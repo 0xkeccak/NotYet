@@ -9,3 +9,6 @@ dist/
 *.key
 keys/
 scratch/
+
+# speculos emulator assets
+.speculos/

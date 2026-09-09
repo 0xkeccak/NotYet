@@ -51,7 +51,7 @@ const rounds = [roundForTime(now + 10_000), roundForTime(now + 600_000)]; // p0 
 const master = newMasterViewSecret();
 const periods = [];
 for (let i = 0; i < rounds.length; i++) {
-  const p = await issuePeriod(c, { index: i, round: rounds[i], budgetTinybars: "50000000" });
+  const p = await issuePeriod(c, { index: i, round: rounds[i], budgetTinybars: "3000000" });
   await submitMessage(c, topicId, JSON.stringify({ index: i, round: rounds[i], accountId: p.accountId, ciphertext: p.ciphertext }));
   periods.push({ index: i, startMs: now + i * 90_000, round: rounds[i], hederaAccountId: p.accountId, budget: "50000000" });
   console.log(`  period ${i}: account ${p.accountId}, round ${rounds[i]} -> HCS`);

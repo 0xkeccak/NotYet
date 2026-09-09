@@ -75,6 +75,7 @@ $("issue").onclick = async () => {
   $("issueOut").style.display = "block"; $("issueOut").textContent = "creating period accounts, funding, timelocking, posting to HCS…";
   try {
     const r = await api("/api/issue", { count: Number($("count").value) });
+    if (r.error) throw new Error(r.error);
     $("issueOut").textContent = "HCS topic " + r.topicId + " — " + r.count + " periods locked\n" +
       r.periods.map(p => `  period ${p.index}: account ${p.accountId}, round ${p.round}`).join("\n");
   } catch(e){ $("issueOut").innerHTML = '<span class="err">'+e.message+'</span>'; }

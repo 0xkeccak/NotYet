@@ -37,7 +37,7 @@ const rounds = [roundForTime(now + 12_000), roundForTime(now + 600_000)]; // p0 
 const master = newMasterViewSecret();
 
 for (let i = 0; i < rounds.length; i++) {
-  const p = await issuePeriod(client, { index: i, round: rounds[i], budgetTinybars: "50000000" }); // 0.5 HBAR
+  const p = await issuePeriod(client, { index: i, round: rounds[i], budgetTinybars: "3000000" }); // 0.5 HBAR
   await submitMessage(client, topicId, JSON.stringify({ index: p.index, round: p.round, accountId: p.accountId, ciphertext: p.ciphertext }));
   console.log(`  period ${i}: account ${p.accountId}, round ${p.round}, key locked -> HCS`);
 }

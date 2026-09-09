@@ -1,0 +1,19 @@
+{
+  "name": "notyet",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled agent spend authority where the key doesn't exist until its time.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gate": "tsx scripts/day1-gate.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

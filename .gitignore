@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+*.log
+dist/
+.next/
+.DS_Store
+# never commit plaintext keys or decrypted material
+*.key
+keys/
+scratch/

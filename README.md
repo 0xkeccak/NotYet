@@ -46,6 +46,9 @@ period's** balance — the rest of the keys still don't exist.
 Two chains, no bridge: ENS on Sepolia *names* the agent and holds its rules; Hedera holds
 the money and the log. The ENS record just points to the Hedera account / HCS topic.
 
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the two-key model, trust boundaries, and
+the issue / spend / audit flows.
+
 ## What's live
 
 - **ENS name (root of trust):** `mujahid.eth` on Sepolia (ENSv2), text records
@@ -76,7 +79,26 @@ npx tsx scripts/full-demo.ts
 
 # Or the clickable dashboard:
 npx tsx web/server.ts         # http://localhost:4040
+
+# Everything in one process (the hosted entry — landing + demo + x402 service):
+npm start                     # x402 service on :4021, dashboard/landing on $PORT (4040)
 ```
+
+The landing page (`web/public/index.html`) is a warm, editorial single-page site — a
+plain-English explainer, the 4-pillar model, real-world incident cards, and the live
+demo (issue → `NOT_YET` → unlock → x402 settle → audit) all wired to the running SDK.
+
+### Hosting
+
+`npm start` is a single process (`start.ts`) that Railway can run as-is. Deploy:
+
+```bash
+bash scripts/deploy.sh        # railway up (retries through the free-tier peak window),
+                              # then generates a public domain and prints the URL
+```
+
+> **Live URL:** _pending first deploy_ — Railway free tier pins builds to `sfo`, which is
+> unavailable during PT peak hours (8am–8pm); `scripts/deploy.sh` waits out that window.
 
 Gate checks (the load-bearing primitives, verified against live services):
 
@@ -111,8 +133,9 @@ sdk/       tlock · ens · pay · hcs · receipts · sign · types
 issuer/    schedule · derive · lock · ledger (Speculos signer) · publish
 agent/     resolve (read + verify from ENS)
 service/   x402-gated price feed (Blocky402)
-web/       dashboard (server + single-page UI)
-scripts/   day1-gate · test-core · test-ens · test-ledger · e2e · full-demo · speculos-up
+web/       dashboard API (server) + editorial landing/demo (public/index.html)
+scripts/   day1-gate · test-core · test-ens · test-ledger · e2e · full-demo · speculos-up · deploy
+start.ts   one-process entry (service + web) for hosting
 ```
 
 ## Honest claims

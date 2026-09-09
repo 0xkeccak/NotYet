@@ -8,6 +8,13 @@
   "engines": {
     "node": ">=22"
   },
+  "main": "sdk/index.ts",
+  "exports": {
+    ".": "./sdk/index.ts",
+    "./agent/resolve": "./agent/resolve.ts",
+    "./sdk/tlock": "./sdk/tlock.ts",
+    "./sdk/pay": "./sdk/pay.ts"
+  },
   "scripts": {
     "gate": "tsx scripts/day1-gate.ts",
     "typecheck": "tsc --noEmit"

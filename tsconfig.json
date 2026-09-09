@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["sdk", "issuer", "agent", "service", "scripts"]
+  "include": ["sdk", "issuer", "agent", "service", "scripts", "web"]
 }

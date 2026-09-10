@@ -22,10 +22,13 @@
     "demo": "tsx scripts/full-demo.ts",
     "mcp": "tsx bazantic/mcp-server.ts",
     "gate": "tsx scripts/day1-gate.ts",
+    "compile:vault": "tsx scripts/compile-vault.ts",
+    "gate:vault": "tsx scripts/test-vault.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "solc": "^0.8.37",
     "typescript": "^5.7.2"
   },
   "dependencies": {

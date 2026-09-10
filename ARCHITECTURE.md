@@ -30,18 +30,21 @@ period i  ──tlock.encrypt(spendKey_i, round_i)──▶  ciphertext_i   (pub
 
 ## Trust boundaries (which track secures what)
 
-- **ENS (Sepolia, ENSv2)** — *root of trust.* `mujahid.eth` text records hold the signed
-  schedule (`notyet:schedule`) and the issuer address (`notyet:issuer`). The agent reads
-  its rules here and **refuses** if the signature doesn't recover to the published issuer.
-- **Ledger (Speculos)** — *root of authority.* The issuer key signs the schedule with an
-  on-device confirmation. The agent never holds it; a tampered schedule fails verification.
+- **Ledger (Device Management Kit / Speculos)** — *root of authority.* The issuer key signs
+  the schedule with an on-device confirmation. The agent never holds it; a tampered schedule
+  fails verification.
 - **drand / tlock** — *the lock.* Binds each key to a wall-clock moment. No key server.
-- **Hedera** — *money + audit.* One funded account per period is a ledger-enforced budget
-  cap (a hacked agent can spend at most one period's balance). HCS carries the ciphertexts
-  and the encrypted receipts. x402 payments settle via the keyless Blocky402 facilitator.
+- **Hedera** — *root of trust + money + audit.* One HCS topic carries the signed schedule
+  (the agent reads it back and **refuses** unless it recovers to the trusted issuer), the
+  ciphertexts, and the encrypted receipts. One funded account per period is a ledger-enforced
+  budget cap. x402 payments settle via the keyless Blocky402 facilitator.
+- **MCP / Bazantic** — *reach.* The capability is exposed as MCP tools so other agents can
+  pay through Notyet, inheriting the one-period blast radius.
 
-Two chains, **no bridge**: ENS *names* the agent and holds rules; Hedera holds value and
-logs. The ENS record just points across. Nothing moves between them.
+One chain, **no bridge**: Hedera holds value, the audit log, *and* the rules the agent
+verifies. The trust anchor is simply the issuer address the agent is configured to trust —
+there is nothing to bridge. (An optional human-readable ENS identity layer, using ENSIP-25/26
+agent text records, lives on the `ens` branch.)
 
 ## Flow 1 — Issue (Human → Agent, once)
 
@@ -52,14 +55,14 @@ Owner sets a rule ("$5 each period, N periods")
        create + fund a Hedera account with a fresh spend key   (issuer/lock.ts)
        tlock-encrypt spendKey_i to round_i; wipe the plaintext
        submit ciphertext_i to the HCS topic                    (sdk/hcs.ts)
-  3. Write signed schedule + issuer address to ENS text records (issuer/publish.ts)
+  3. Post the signed schedule to the HCS topic (issuer/publish.ts)
 Owner now holds nothing usable. Walk away.
 ```
 
 ## Flow 2 — Spend (Agent → Agent, per period, autonomous)
 
 ```
-  1. Resolve rules from ENS, verify issuer signature — refuse on mismatch  (agent/resolve.ts)
+  1. Resolve rules from HCS, verify issuer signature — refuse on mismatch  (agent/resolve.ts)
   2. Fetch ciphertext_i from HCS
   3. tlock.decrypt(ciphertext_i):
         before round_i  ─▶ throws NOT_YET   (the money shot)

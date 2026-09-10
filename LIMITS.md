@@ -27,10 +27,13 @@
   full. The signing path is identical to a hardware device (the on-device confirmation is
   auto-pressed via the Speculos button API; a real device confirms by hand). Point the
   same code at a plugged-in device and it signs there instead.
-- **Genuine ENS registration on Sepolia in this code.** Sepolia is mid-ENSv2 migration;
-  `mujahid.eth` was registered via the ENSv2 app (app.ens.dev) and our code reads/writes
-  its records through the ENSv2 resolver. The classic ETHRegistrarController reverts on
-  Sepolia right now (documented in `scripts/ens-register.ts`).
+- **ENS as the root of trust on `main`.** It isn't — Hedera/HCS is. `main` is single-chain:
+  the Ledger-signed schedule lives on an HCS topic and the agent verifies it against the
+  issuer it's configured to trust. The ENS integration (human-readable identity + ENSIP-25/26
+  agent text records, published live on `mujahid.eth`) is preserved on the `ens` branch as an
+  optional identity layer, not a dependency. Note: ENSv2 *subname* creation on Sepolia is not
+  possible with stable tooling today (`ensjs` v4 targets the classic registry) — the branch
+  uses the ENS-blessed, text-record-based agent standards instead.
 
 ## Novelty
 

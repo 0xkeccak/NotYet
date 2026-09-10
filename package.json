@@ -28,17 +28,19 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "tsx": "^4.19.2",
     "@ensdomains/ensjs": "^4.3.1",
-    "@ledgerhq/hw-app-eth": "^7.8.17",
-    "@ledgerhq/hw-transport-node-speculos-http": "^6.36.7",
+    "@ledgerhq/device-management-kit": "^1.9.0",
+    "@ledgerhq/device-signer-kit-ethereum": "^1.18.0",
+    "@ledgerhq/device-transport-kit-speculos": "^1.2.1",
     "@x402/core": "^2.25.0",
     "@x402/express": "^2.25.0",
     "@x402/hedera": "^2.25.0",
     "dotenv": "^17.4.2",
     "drand-client": "^1.4.2",
     "express": "^5.2.1",
+    "rxjs": "^7.8.2",
     "tlock-js": "^0.9.0",
+    "tsx": "^4.19.2",
     "tweetnacl": "^1.0.3",
     "viem": "^2.56.3"
   }

@@ -1,13 +1,17 @@
 /**
- * Ledger-backed schedule signing via the Ledger Wallet stack, run against the
- * Speculos emulator (Ledger's official device emulator — no physical device needed,
- * and Ledger states this qualifies in full). The issuer's authority key lives on the
- * (emulated) device; the schedule is signed with an on-device confirmation, exactly
- * the "human confirms the schedule once" step. The agent verifies the signature the
- * same way it verifies any issuer signature — recover address == issuer on ENS.
+ * Ledger-backed schedule signing via the **Ledger Device Management Kit (DMK)** — Ledger's
+ * current device stack (the Ledger Agent Stack), which supersedes the legacy hw-app-*
+ * libraries. Runs against the Speculos emulator over DMK's official HTTP transport
+ * (`@ledgerhq/device-transport-kit-speculos`) — no physical device needed.
+ *
+ * The issuer's authority key lives on the device. Signing the schedule is the one
+ * human-in-the-loop, on-device approval in the whole system: the owner approves the
+ * entire budget once, then walks away. The agent later verifies that signature against
+ * the issuer address published on ENS and refuses if it doesn't match.
  */
-import SpeculosHttpTransport from "@ledgerhq/hw-transport-node-speculos-http";
-import Eth from "@ledgerhq/hw-app-eth";
+import { DeviceManagementKitBuilder } from "@ledgerhq/device-management-kit";
+import { speculosTransportFactory } from "@ledgerhq/device-transport-kit-speculos";
+import { SignerEthBuilder } from "@ledgerhq/device-signer-kit-ethereum";
 import { canonicalJSON } from "./schedule.js";
 import type { Schedule, SignedSchedule } from "../sdk/types.js";
 
@@ -19,63 +23,89 @@ export interface LedgerOptions {
   apiPort?: string; // Speculos API port (default 5111)
 }
 
-function apiBase(opts: LedgerOptions): string {
-  return `${opts.host ?? "http://localhost"}:${opts.apiPort ?? "5111"}`;
+function speculosUrl(o: LedgerOptions): string {
+  return `${o.host ?? "http://localhost"}:${o.apiPort ?? "5111"}`;
 }
 
-async function openEth(opts: LedgerOptions) {
-  const T: any = (SpeculosHttpTransport as any).default || SpeculosHttpTransport;
-  const transport = await T.open({ baseURL: opts.host ?? "http://localhost", apiPort: opts.apiPort ?? "5111" });
-  return { transport, eth: new Eth(transport) };
+async function connect(opts: LedgerOptions) {
+  const url = speculosUrl(opts);
+  const dmk = new DeviceManagementKitBuilder().addTransport(speculosTransportFactory(url)).build();
+  const sessionId: string = await new Promise((resolve, reject) => {
+    const sub = dmk.startDiscovering({}).subscribe({
+      next: async (device) => {
+        try {
+          const id = await dmk.connect({ device });
+          sub.unsubscribe();
+          resolve(id);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      error: reject,
+    });
+    setTimeout(() => reject(new Error(`Ledger (Speculos) not found on ${url} — is it running? (bash scripts/speculos-up.sh)`)), 10_000);
+  });
+  const signer = new SignerEthBuilder({ dmk, sessionId }).build();
+  return { dmk, sessionId, signer, url };
 }
 
-/** The issuer address held on the (emulated) Ledger. */
-export async function ledgerIssuerAddress(opts: LedgerOptions = {}): Promise<`0x${string}`> {
-  const { transport, eth } = await openEth(opts);
-  try {
-    const { address } = await eth.getAddress(DERIVATION, false);
-    return address as `0x${string}`;
-  } finally {
-    await transport.close();
-  }
-}
-
-/**
- * Sign the schedule on the (emulated) Ledger. Auto-confirms the on-device prompt via
- * the Speculos button API so it runs headless; a physical device would confirm by hand.
- */
-export async function signScheduleWithLedger(schedule: Schedule, opts: LedgerOptions = {}): Promise<SignedSchedule> {
-  const { transport, eth } = await openEth(opts);
-  const base = apiBase(opts);
+/** Consume a DMK device-action observable, auto-approving the on-device prompt via the
+ *  Speculos button API so it runs headless (a physical device confirms by hand). */
+async function runAction<T>(action: { observable: any }, url: string): Promise<T> {
+  let done = false;
   const press = (b: string) =>
-    fetch(`${base}/button/${b}`, {
+    fetch(`${url}/button/${b}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "press-and-release" }),
     }).catch(() => {});
+  (async () => {
+    for (let i = 0; i < 40 && !done; i++) {
+      await press("right");
+      await sleep(150);
+      await press("both");
+      await sleep(150);
+    }
+  })();
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      action.observable.subscribe({
+        next: (s: any) => {
+          if (s.status === "completed") resolve(s.output as T);
+          else if (s.status === "error") reject(new Error(JSON.stringify(s.error)));
+        },
+        error: reject,
+      });
+    });
+  } finally {
+    done = true;
+  }
+}
+
+/** The issuer address held on the (emulated) Ledger. */
+export async function ledgerIssuerAddress(opts: LedgerOptions = {}): Promise<`0x${string}`> {
+  const { dmk, sessionId, signer, url } = await connect(opts);
+  try {
+    const out = await runAction<{ address: string }>(signer.getAddress(DERIVATION), url);
+    return out.address as `0x${string}`;
+  } finally {
+    await dmk.disconnect({ sessionId }).catch(() => {});
+  }
+}
+
+/** Sign the schedule on the (emulated) Ledger via DMK; returns { schedule, signature }. */
+export async function signScheduleWithLedger(schedule: Schedule, opts: LedgerOptions = {}): Promise<SignedSchedule> {
+  const { dmk, sessionId, signer, url } = await connect(opts);
   try {
     const message = canonicalJSON(schedule);
-    const hex = Buffer.from(message, "utf8").toString("hex");
-
-    let done = false;
-    const signing = eth.signPersonalMessage(DERIVATION, hex).then((r: any) => {
-      done = true;
-      return r;
-    });
-    (async () => {
-      for (let i = 0; i < 40 && !done; i++) {
-        await press("right");
-        await sleep(150);
-        await press("both");
-        await sleep(150);
-      }
-    })();
-    const s: any = await signing;
-
+    const s = await runAction<{ r: string; s: string; v: number | string }>(signer.signMessage(DERIVATION, message), url);
     const v = typeof s.v === "number" ? s.v : parseInt(s.v, 16);
-    const signature = ("0x" + s.r + s.s + v.toString(16).padStart(2, "0")) as `0x${string}`;
+    const signature = ("0x" +
+      s.r.replace(/^0x/, "") +
+      s.s.replace(/^0x/, "") +
+      v.toString(16).padStart(2, "0")) as `0x${string}`;
     return { schedule, signature };
   } finally {
-    await transport.close();
+    await dmk.disconnect({ sessionId }).catch(() => {});
   }
 }

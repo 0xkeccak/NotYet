@@ -50,3 +50,61 @@ export async function writeText(
   await pub(rpcUrl).waitForTransactionReceipt({ hash });
   return hash;
 }
+
+/* -------------------------------------------------------------------------- *
+ * Agent identity on ENS — the ENS-blessed, text-record-based standards for AI
+ * agents (no subnames / registry changes needed):
+ *   ENSIP-26 "Agent Text Records": agent-context + agent-endpoint[<protocol>]
+ *   ENSIP-25 "AI Agent Registry verification": agent-registration[<registry>][<id>]
+ * This lets `mujahid.eth` *be* the Notyet agent's discoverable identity: what it is,
+ * and how to reach it over web / a2a (its x402 pay endpoint) / mcp.
+ * -------------------------------------------------------------------------- */
+
+export const AGENT_CONTEXT_KEY = "agent-context"; // ENSIP-26
+export type AgentProtocol = "mcp" | "a2a" | "web";
+export const agentEndpointKey = (proto: AgentProtocol) => `agent-endpoint[${proto}]`; // ENSIP-26
+/** ENSIP-25: <registry> is an ERC-7930 interoperable address, <agentId> the registry id. */
+export const agentRegistrationKey = (registry: string, agentId: string) => `agent-registration[${registry}][${agentId}]`;
+
+export interface AgentRecords {
+  context: string; // ENSIP-26 agent-context (markdown/plain)
+  endpoints: Partial<Record<AgentProtocol, string>>; // ENSIP-26 agent-endpoint[*]
+}
+
+/** Publish ENSIP-26 agent records (agent-context + agent-endpoint[*]) to an ENS name. */
+export async function publishAgentRecords(
+  rpcUrl: string,
+  ownerPrivateKey: `0x${string}`,
+  name: string,
+  rec: AgentRecords,
+): Promise<`0x${string}`[]> {
+  const txs: `0x${string}`[] = [];
+  txs.push(await writeText(rpcUrl, ownerPrivateKey, name, AGENT_CONTEXT_KEY, rec.context));
+  for (const proto of ["mcp", "a2a", "web"] as const) {
+    const url = rec.endpoints[proto];
+    if (url) txs.push(await writeText(rpcUrl, ownerPrivateKey, name, agentEndpointKey(proto), url));
+  }
+  return txs;
+}
+
+/** Read ENSIP-26 agent records back from an ENS name. */
+export async function readAgentRecords(rpcUrl: string, name: string): Promise<AgentRecords> {
+  const context = await readText(rpcUrl, name, AGENT_CONTEXT_KEY);
+  const endpoints: Partial<Record<AgentProtocol, string>> = {};
+  for (const proto of ["mcp", "a2a", "web"] as const) {
+    const v = await readText(rpcUrl, name, agentEndpointKey(proto));
+    if (v) endpoints[proto] = v;
+  }
+  return { context, endpoints };
+}
+
+/** ENSIP-25: attest that this ENS name is the agent <agentId> in <registry> (value "1"). */
+export async function attestAgentRegistration(
+  rpcUrl: string,
+  ownerPrivateKey: `0x${string}`,
+  name: string,
+  registry: string,
+  agentId: string,
+): Promise<`0x${string}`> {
+  return writeText(rpcUrl, ownerPrivateKey, name, agentRegistrationKey(registry, agentId), "1");
+}

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Notyet — scheduled agent spend authority</title>
-<meta name="description" content="Scheduled agent spend authority where the key doesn't exist until its time. Timelock encryption (drand/tlock) + x402 on Hedera, root-of-trust on ENS, signed on Ledger." />
+<meta name="description" content="Scheduled agent spend authority where the key doesn't exist until its time. Timelock encryption (drand/tlock) + x402 on Hedera (money, audit + root-of-trust), signed on Ledger (DMK), callable by any agent over MCP." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%8F%B3%3C/text%3E%3C/svg%3E" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Notyet" />
@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://notyet.up.railway.app/og.svg" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Notyet — Tuesday's key doesn't exist until Tuesday" />
-<meta name="twitter:description" content="Timelocked agent spend authority (drand/tlock) settled via x402 on Hedera, root-of-trust on ENS, signed on Ledger. Live demo you can run." />
+<meta name="twitter:description" content="Timelocked agent spend authority (drand/tlock) settled via x402 on Hedera, signed on Ledger (DMK), callable by any agent over MCP. Live demo you can run." />
 <meta name="twitter:image" content="https://notyet.up.railway.app/og.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -214,7 +214,7 @@
 </div></nav>
 
 <header class="wrap hero">
-  <span class="flourish">ETHOnline 2026 · Hedera · Ledger · ENS</span>
+  <span class="flourish">ETHOnline 2026 · Hedera · Ledger · Bazantic</span>
   <h1>Tuesday's key <span class="hl">doesn't&nbsp;exist</span><br>until Tuesday.</h1>
   <p class="herosub">Give an autonomous agent a budget on a schedule — where each period's spend key is
     <b>encrypted to the future</b> and cannot be used, leaked, or coerced open before its time.
@@ -276,10 +276,10 @@
     <div class="grid g2 pillars" style="margin-top:32px">
       <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:10px">The lock itself</h3><p>Keys are born on schedule. Decrypt early and it throws <span class="mono">NOT_YET</span> — for anyone, including the owner.</p></div></div>
       <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device; the owner approves the whole schedule with one on-device confirmation via the Ledger <b>Device Management Kit</b>. The agent never holds it.</p></div></div>
-      <div class="card"><span class="ic">🌐</span><div><span class="badge b-blue">ENS</span><h3 style="margin-top:10px">Root of trust</h3><p>The signed schedule + issuer address live on an ENS name. The agent reads its rules there and <b>refuses</b> if the signature doesn't verify.</p></div></div>
-      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Money + audit log</h3><p>One funded account per period (a ledger-enforced cap), x402 payments via Blocky402, and an HCS log of ciphertexts + encrypted receipts.</p></div></div>
+      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Money · audit · trust</h3><p>One funded account per period (a ledger-enforced cap), x402 payments via Blocky402, and an HCS log carrying the ciphertexts, the receipts, <b>and the signed schedule the agent verifies</b>. The agent <b>refuses</b> if the signature doesn't match the trusted issuer.</p></div></div>
+      <div class="card"><span class="ic">🔗</span><div><span class="badge b-blue">MCP · Bazantic</span><h3 style="margin-top:10px">Any agent can call it</h3><p>The whole capability is exposed as MCP tools, so other agents pay through Notyet — agent-to-agent payments that inherit the timelock's blast-radius bound of one period.</p></div></div>
     </div>
-    <p class="small" style="margin-top:22px">Two chains, no bridge: ENS on Sepolia <i>names</i> the agent and holds its rules; Hedera holds the money. The ENS record just points across.</p>
+    <p class="small" style="margin-top:22px">One chain, no bridge: Hedera holds the money, the audit log, <i>and</i> the signed rules the agent verifies — there's nothing to bridge. The trust anchor is just the issuer address the agent is told to trust.</p>
   </div>
 </section>
 
@@ -299,7 +299,7 @@
     <p class="lead" style="margin-top:16px">Anywhere an autonomous agent spends money on a cadence, the same rule holds: a bad day costs one period, never the whole plan.</p>
     <div class="grid g3" style="margin-top:30px">
       <div class="card"><span class="kicker">DAO / fund → trading bot</span><h3 style="margin-top:8px">Daily budget it can't front-run</h3><p>The bot trades within today's allowance. <b>Hacked on day 3 → it loses one day, not the treasury.</b></p></div>
-      <div class="card"><span class="kicker">Company → procurement agent</span><h3 style="margin-top:8px">Finance signs once, then leaves</h3><p>The month is pre-signed on Ledger and published to ENS. <b>No standing key for anyone to steal or subpoena.</b></p></div>
+      <div class="card"><span class="kicker">Company → procurement agent</span><h3 style="margin-top:8px">Finance signs once, then leaves</h3><p>The month is pre-signed on Ledger and posted to Hedera. <b>No standing key for anyone to steal or subpoena.</b></p></div>
       <div class="card"><span class="kicker">Research fleet → paid APIs</span><h3 style="margin-top:8px">One x402 key per shift</h3><p>Each shift unlocks its own key; a leaked one dies at shift end. <b>Every call logged to HCS for audit.</b></p></div>
       <div class="card"><span class="kicker">You → personal assistant</span><h3 style="margin-top:8px">A daily allowance for tools</h3><p>Your agent gets, say, $10/day for data and APIs. <b>Prompt-inject it and the blast radius is one day.</b></p></div>
       <div class="card"><span class="kicker">Creator → autonomous ops</span><h3 style="margin-top:8px">A week of tipping or ad spend</h3><p>Pre-fund a week of promos or tips. <b>The agent can't blow the quarter on one bad prompt.</b></p></div>
@@ -366,17 +366,17 @@
   <div class="wrap">
     <p class="eyebrow">Proof, not promises</p>
     <h2 class="serif">Nothing here is a slide.</h2>
-    <p class="lead" style="margin-top:16px">Every claim on this page points at a live testnet artifact you can open right now — the ENS records, the on-device issuer signature, and a real settled payment.</p>
+    <p class="lead" style="margin-top:16px">Every claim on this page points at a live testnet artifact you can open right now — the signed schedule on Hedera, the on-device issuer signature, and a real settled payment.</p>
     <div class="grid g3" style="margin-top:30px">
 
-      <div class="card"><span class="badge b-blue">ENS · Sepolia</span>
-        <h3 style="margin-top:12px">The rulebook is on-chain</h3>
-        <p><span class="mono" style="color:var(--ink)">mujahid.eth</span> holds the signed schedule (<span class="mono">notyet:schedule</span>) and the issuer address (<span class="mono">notyet:issuer</span>). The agent reads its rules here.</p>
-        <p class="src" style="margin-top:12px"><a href="https://app.ens.dev/mujahid.eth" target="_blank">ENS name ↗</a> &nbsp;·&nbsp; <a href="https://sepolia.etherscan.io/address/0xA53A6813272A072C52dF7b4876076434ad14fb9B" target="_blank">resolver ↗</a></p></div>
+      <div class="card"><span class="badge b-blue">MCP · Bazantic</span>
+        <h3 style="margin-top:12px">Any agent can call it</h3>
+        <p>The capability is an <b>MCP server</b> (<span class="mono">notyet_status</span>, <span class="mono">notyet_pay</span>): other agents pay through Notyet and inherit the timelock — they can only ever spend the one period whose key exists.</p>
+        <p class="src" style="margin-top:12px"><a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/recipe.md" target="_blank">recipe ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/mcp-server.ts" target="_blank">mcp-server ↗</a></p></div>
 
       <div class="card"><span class="badge b-violet">Ledger · DMK</span>
         <h3 style="margin-top:12px">Signed by the issuer device</h3>
-        <p>The schedule is signed by the issuer key on a Ledger via the <b>Device Management Kit</b> (Agent Stack), run headless on Speculos. The address is published on ENS and recovers from the signature — tamper with the rules and verification fails.</p>
+        <p>The schedule is signed by the issuer key on a Ledger via the <b>Device Management Kit</b> (Agent Stack), run headless on Speculos. The signature must recover to the trusted issuer — tamper with the rules and the agent refuses.</p>
         <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0xDad7…6D8D</span> &nbsp; <a href="https://sepolia.etherscan.io/address/0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D" target="_blank">issuer ↗</a></p></div>
 
       <div class="card"><span class="badge b-green">Hedera · x402</span>
@@ -413,9 +413,9 @@
         <span class="fn">agent/loop.ts</span></div>
       <pre><span class="c-violet">import</span> { resolveSchedule, decryptCiphertext, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"notyet"</span>
 
-<span class="c-dim">// 1 · read the rules from ENS + verify the issuer's signature</span>
-<span class="c-dim">//     (throws UntrustedScheduleError if the signature doesn't match)</span>
-<span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(rpcUrl, <span class="c-green">"mujahid.eth"</span>)
+<span class="c-dim">// 1 · read the rules from Hedera (HCS) + verify the issuer's signature</span>
+<span class="c-dim">//     (throws UntrustedScheduleError if it isn't signed by the trusted issuer)</span>
+<span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(topicId, trustedIssuer)
 <span class="c-blue">const</span> period = schedule.periods[now]
 
 <span class="c-violet">try</span> {
@@ -441,9 +441,9 @@
   <div class="tracks">
     <span class="chip">⚡ Hedera — AI &amp; Agentic Payments</span>
     <span class="chip">🔑 Ledger — AI Agents</span>
-    <span class="chip">🌐 ENSv2 — Best Use</span>
+    <span class="chip">🔗 Bazantic — Agentify a New API</span>
   </div>
-  <p class="small"><a href="https://github.com/0xkeccak/NotYet" target="_blank">GitHub</a> · Root of trust: <span class="mono">mujahid.eth</span> (Sepolia) · Payments settle on <a href="https://hashscan.io/testnet" target="_blank">HashScan</a> · See <a href="https://github.com/0xkeccak/NotYet/blob/main/LIMITS.md" target="_blank">honest claims</a>.</p>
+  <p class="small"><a href="https://github.com/0xkeccak/NotYet" target="_blank">GitHub</a> · Root of trust: <span class="mono">Hedera HCS</span> · Payments settle on <a href="https://hashscan.io/testnet" target="_blank">HashScan</a> · See <a href="https://github.com/0xkeccak/NotYet/blob/main/LIMITS.md" target="_blank">honest claims</a>.</p>
 </div></footer>
 
 <script>

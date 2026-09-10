@@ -4,7 +4,7 @@
 
 > Tuesday's key does not exist until Tuesday.
 
-Built for **ETHOnline 2026** · Hedera · Ledger · ENSv2. Everything below runs **live on
+Built for **ETHOnline 2026** · Hedera · Ledger · Bazantic. Everything below runs **live on
 testnets** — no mocks in the critical path.
 
 ---
@@ -40,20 +40,25 @@ period's** balance — the rest of the keys still don't exist.
 |---|---|---|
 | **drand / tlock** | Encrypts each spend key to a future round — the lock itself | `npm run gate` (decrypt throws `NOT_YET`, then succeeds) |
 | **Ledger** (Device Management Kit) | Issuer key signs the schedule with an on-device confirmation, via the Ledger DMK (Agent Stack) on Speculos | `scripts/test-ledger.ts` |
-| **ENS** (ENSv2, Sepolia) | Publishes the signed schedule + issuer address; the agent verifies and refuses on mismatch | `scripts/test-ens.ts` |
-| **Hedera** | Holds each period's budget (one account/period), carries ciphertexts + encrypted receipts on HCS, settles x402 payments via Blocky402 | `scripts/day1-gate.ts`, `scripts/e2e.ts` |
+| **Hedera** | Root of trust + money + audit: the signed schedule, the ciphertexts, and the encrypted receipts all live on one HCS topic; one funded account per period; x402 settled via Blocky402. The agent verifies the schedule against the trusted issuer and refuses on mismatch | `scripts/test-ledger.ts`, `scripts/day1-gate.ts` |
+| **Bazantic / MCP** | The whole capability exposed as MCP tools so other agents pay through Notyet — A2A payments that inherit the one-period blast radius | `bazantic/recipe.md` |
 
-Two chains, no bridge: ENS on Sepolia *names* the agent and holds its rules; Hedera holds
-the money and the log. The ENS record just points to the Hedera account / HCS topic.
+One chain, no bridge: Hedera holds the money, the audit log, *and* the signed rules the
+agent verifies. The trust anchor is simply the issuer address the agent is told to trust.
+(An optional ENS identity layer — human-readable name + ENSIP-26 agent records — lives on
+the [`ens`](https://github.com/0xkeccak/NotYet/tree/ens) branch.)
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the two-key model, trust boundaries, and
 the issue / spend / audit flows.
 
 ## What's live
 
-- **ENS name (root of trust):** `mujahid.eth` on Sepolia (ENSv2), text records
-  `notyet:schedule` + `notyet:issuer`.
+- **Root of trust (Hedera HCS):** the Ledger-signed schedule is posted to an HCS topic as
+  a `notyet:schedule` message; the agent reads it back and verifies the signature against
+  the trusted issuer.
 - **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`.
+- **Bazantic / MCP:** `bazantic/mcp-server.ts` exposes `notyet_status` + `notyet_pay` so
+  any agent can pay through Notyet (`npm run mcp`).
 - **Hedera:** period accounts funded per-period; x402 settled through the Blocky402
   testnet facilitator (`api.testnet.blocky402.com`, keyless), the facilitator sponsors
   the fee. Example settlement:
@@ -73,8 +78,8 @@ npx tsx service/server.ts
 
 # 3. The whole story, end to end (new terminal)
 npx tsx scripts/full-demo.ts
-#   ISSUER: Ledger signs -> Hedera period accounts + HCS -> publish to ENS
-#   AGENT : resolve+verify from ENS -> NOT_YET on a future period -> unlock -> x402 pay
+#   ISSUER: Ledger (DMK) signs -> Hedera period accounts + HCS -> publish signed schedule to HCS
+#   AGENT : resolve+verify from HCS -> NOT_YET on a future period -> unlock -> x402 pay
 #   AUDIT : one period's view key decrypts only that period
 
 # Or the clickable dashboard:
@@ -129,33 +134,38 @@ npx tsx scripts/test-core.ts  # 17 offline checks (schedule, sign/verify, scoped
 
 ### .env
 
-`HEDERA_PAYER_ID` / `HEDERA_PAYER_KEY` (ECDSA, from portal.hedera.com faucet),
-`HEDERA_MERCHANT_ID`, `SEPOLIA_RPC_URL`, `ENS_OWNER_KEY`, `ENS_NAME`. Secrets stay in
-`.env` (gitignored) — never committed.
+`HEDERA_PAYER_ID` / `HEDERA_PAYER_KEY` (ECDSA, from portal.hedera.com faucet) and
+`HEDERA_MERCHANT_ID`. Secrets stay in `.env` (gitignored) — never committed. (The optional
+ENS identity layer on the `ens` branch also uses `SEPOLIA_RPC_URL`, `ENS_OWNER_KEY`, `ENS_NAME`.)
 
 ## The three tracks — each load-bearing
 
-- **Hedera — AI & Agentic Payments.** Real x402 payments via Blocky402 from per-period
-  accounts; HCS carries the ciphertexts and encrypted receipts (verifiable audit trail);
-  one account per period = a ledger-enforced budget cap. *Remove it → no payment rail, no
-  audit log, no cap.*
+- **Hedera — AI & Agentic Payments.** A live, callable x402 service (`/price`) settled via
+  Blocky402; per-period accounts (a ledger-enforced budget cap); and one HCS topic that is
+  the **root of trust** *and* the audit log — the signed schedule, the ciphertexts, and the
+  encrypted receipts. *Remove it → no payment rail, no trust anchor, no audit, no cap.*
 - **Ledger — AI Agents.** The issuer authority key lives on the device (Ledger **Device
-  Management Kit** / Agent Stack, run headless on Speculos) and signs the schedule with
-  one on-device confirmation. The agent never holds it. *Remove it → the schedule has no
-  trusted signer.*
-- **ENSv2 — Best Use.** `mujahid.eth` holds the signed schedule + issuer address; the
-  agent reads its rules there and **refuses** if the signature doesn't verify. *Remove it
-  → the agent has no schedule to trust.*
+  Management Kit** / Agent Stack, run headless on Speculos) and signs the schedule with one
+  on-device confirmation. The agent never holds it. *Remove it → the schedule has no trusted
+  signer.*
+- **Bazantic — Agentify a New API.** The capability is an MCP server (`notyet_status`,
+  `notyet_pay`) so other agents pay through Notyet — A2A payments that inherit the timelock's
+  one-period blast radius. *Remove it → the capability isn't reachable by other agents.*
+
+> Root of trust moved from ENS to Hedera/HCS to keep the critical path single-chain. The
+> ENS integration (human-readable identity + ENSIP-25/26 agent records) is preserved on the
+> [`ens`](https://github.com/0xkeccak/NotYet/tree/ens) branch as an optional layer.
 
 ## Repo layout
 
 ```
-sdk/       tlock · ens · pay · hcs · receipts · sign · types
-issuer/    schedule · derive · lock · ledger (Speculos signer) · publish
-agent/     resolve (read + verify from ENS)
+sdk/       tlock · pay · hcs · receipts · sign · types  (index = public SDK)
+issuer/    schedule · derive · lock · ledger (DMK signer) · publish (to HCS)
+agent/     resolve (read + verify the schedule from HCS)
 service/   x402-gated price feed (Blocky402)
 web/       dashboard API (server) + editorial landing/demo (public/index.html)
-scripts/   day1-gate · test-core · test-ens · test-ledger · e2e · full-demo · speculos-up · deploy
+bazantic/  mcp-server (notyet_status + notyet_pay) · recipe.md
+scripts/   day1-gate · test-core · test-ledger · e2e · full-demo · speculos-up · deploy
 start.ts   one-process entry (service + web) for hosting
 ```
 

@@ -20,6 +20,7 @@
     "service": "tsx service/server.ts",
     "web": "tsx web/server.ts",
     "demo": "tsx scripts/full-demo.ts",
+    "mcp": "tsx bazantic/mcp-server.ts",
     "gate": "tsx scripts/day1-gate.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -31,6 +32,7 @@
     "@ledgerhq/device-management-kit": "^1.9.0",
     "@ledgerhq/device-signer-kit-ethereum": "^1.18.0",
     "@ledgerhq/device-transport-kit-speculos": "^1.2.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@x402/core": "^2.25.0",
     "@x402/express": "^2.25.0",
     "@x402/hedera": "^2.25.0",
@@ -41,6 +43,7 @@
     "tlock-js": "^0.9.0",
     "tsx": "^4.19.2",
     "tweetnacl": "^1.0.3",
-    "viem": "^2.56.3"
+    "viem": "^2.56.3",
+    "zod": "^4.6.1"
   }
 }

@@ -102,6 +102,24 @@ bash scripts/deploy.sh        # railway up (retries through the free-tier peak w
 > testnet. (Railway free tier pins builds to `sfo`, closed during PT peak hours 8am–8pm;
 > `scripts/deploy.sh` waits out that window.)
 
+### The x402-gated service is live and callable
+
+`GET https://notyet.up.railway.app/price` is a real x402-gated endpoint, settled through
+the Blocky402 facilitator on Hedera testnet — hit it directly:
+
+```bash
+curl -i https://notyet.up.railway.app/price
+# HTTP/1.1 402 Payment Required
+# PAYMENT-REQUIRED: <base64 x402 v2 challenge>
+#   scheme "exact" · network "hedera:testnet" · payTo 0.0.10436969
+#   · feePayer 0.0.7162784 (Blocky402 sponsors the fee)
+# Pay with any x402 client → 200 + the price feed; settlement lands on HashScan.
+
+curl -s https://notyet.up.railway.app/health   # { ok, network, facilitator, payTo }
+```
+
+The Notyet SDK's `payX402()` is one such client; the dashboard's "Unlock & pay" drives it.
+
 Gate checks (the load-bearing primitives, verified against live services):
 
 ```bash

@@ -518,22 +518,26 @@ $("audit").onclick=async()=>{
 // ---- AI-style scheduling: plain English → a schedule ----
 function planFromText(s){
   s=(s||"").toLowerCase();
-  const amtM=s.match(/\$?\s*(\d+(?:\.\d+)?)\s*(?:dollars?|usd|bucks?)?/);
-  const durM=s.match(/(?:for\s+)?(\d+)\s*(day|week|hour|shift|period|month)s?/);
+  // amount only when there's a currency cue ($ or "dollars/usd/bucks") — not any stray number
+  const amtM=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)\s*(?:dollars?|usd|bucks?)/);
+  const durM=s.match(/(\d+)\s*(day|week|hour|shift|period|month)s?/);
   const cadMap={daily:"day",weekly:"week",hourly:"hour"};
-  let cadence=(s.match(/\b(daily|weekly|hourly|day|week|hour|shift|period|month)\b/)||[])[1]||"period";
-  cadence=cadMap[cadence]||cadence;
+  const cadRaw=(s.match(/\b(daily|weekly|hourly|day|week|hour|shift|period|month)\b/)||[])[1]||null;
   let count=durM?parseInt(durM[1]):null;
   if(count==null){if(/\bweek\b/.test(s))count=7;else if(/\bmonth\b/.test(s))count=30;}
-  return {amount:amtM?amtM[1]:null, count, cadence};
+  return {amount:amtM?amtM[1]:null, count, cadence:cadRaw?(cadMap[cadRaw]||cadRaw):"period"};
 }
 $("aiPlan").onclick=()=>{
-  const p=planFromText($("aiText").value);
-  let count=p.count??3; const capped=count>5; count=Math.max(1,Math.min(5,count));
+  const raw=($("aiText").value||"").trim();
+  const p=planFromText(raw); const el=$("aiParsed"); el.style.display="block";
+  if(p.amount==null && p.count==null){ // nothing schedule-like — don't pretend
+    el.innerHTML='<span style="color:var(--dim)">Give me an amount and how many periods — e.g. “$5 each day for 5 days”, or “3 periods of $2”.</span>';
+    return;
+  }
+  const assumed=p.count==null; let count=p.count??3; const capped=count>5; count=Math.max(1,Math.min(5,count));
   $("count").value=count;
   const amt=p.amount?`$${p.amount}`:"a set budget";
-  $("aiParsed").style.display="block";
-  $("aiParsed").textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${capped?" (demo caps at 5 periods)":""}. Now hit “Issue schedule”.`;
+  el.textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${assumed?" (assumed 3 — add “for N days” to set)":""}${capped?" (demo caps at 5)":""}. Now hit “Issue schedule”.`;
 };
 $("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click();});
 

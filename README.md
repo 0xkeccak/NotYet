@@ -39,7 +39,7 @@ period's** balance — the rest of the keys still don't exist.
 | Layer | Role | Proven by |
 |---|---|---|
 | **drand / tlock** | Encrypts each spend key to a future round — the lock itself | `npm run gate` (decrypt throws `NOT_YET`, then succeeds) |
-| **Ledger** (Speculos) | Issuer key signs the schedule with an on-device confirmation | `scripts/test-ledger.ts` |
+| **Ledger** (Device Management Kit) | Issuer key signs the schedule with an on-device confirmation, via the Ledger DMK (Agent Stack) on Speculos | `scripts/test-ledger.ts` |
 | **ENS** (ENSv2, Sepolia) | Publishes the signed schedule + issuer address; the agent verifies and refuses on mismatch | `scripts/test-ens.ts` |
 | **Hedera** | Holds each period's budget (one account/period), carries ciphertexts + encrypted receipts on HCS, settles x402 payments via Blocky402 | `scripts/day1-gate.ts`, `scripts/e2e.ts` |
 
@@ -53,7 +53,7 @@ the issue / spend / audit flows.
 
 - **ENS name (root of trust):** `mujahid.eth` on Sepolia (ENSv2), text records
   `notyet:schedule` + `notyet:issuer`.
-- **Ledger issuer (Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`.
+- **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`.
 - **Hedera:** period accounts funded per-period; x402 settled through the Blocky402
   testnet facilitator (`api.testnet.blocky402.com`, keyless), the facilitator sponsors
   the fee. Example settlement:
@@ -139,9 +139,10 @@ npx tsx scripts/test-core.ts  # 17 offline checks (schedule, sign/verify, scoped
   accounts; HCS carries the ciphertexts and encrypted receipts (verifiable audit trail);
   one account per period = a ledger-enforced budget cap. *Remove it → no payment rail, no
   audit log, no cap.*
-- **Ledger — AI Agents.** The issuer authority key lives on the (emulated) device and
-  signs the schedule with an on-device confirmation. The agent never holds it. *Remove it
-  → the schedule has no trusted signer.*
+- **Ledger — AI Agents.** The issuer authority key lives on the device (Ledger **Device
+  Management Kit** / Agent Stack, run headless on Speculos) and signs the schedule with
+  one on-device confirmation. The agent never holds it. *Remove it → the schedule has no
+  trusted signer.*
 - **ENSv2 — Best Use.** `mujahid.eth` holds the signed schedule + issuer address; the
   agent reads its rules there and **refuses** if the signature doesn't verify. *Remove it
   → the agent has no schedule to trust.*

@@ -275,7 +275,7 @@
     <p class="lead" style="margin-top:16px">Each period's spend key is timelock-encrypted (tlock) to a future round of the drand beacon — a threshold network publishing a signature every 3 seconds. That signature <i>is</i> the decryption key, and it does not exist until the round happens. The owner pre-issues the whole schedule, hands the agent every <i>locked</i> key, and walks away.</p>
     <div class="grid g2 pillars" style="margin-top:32px">
       <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:10px">The lock itself</h3><p>Keys are born on schedule. Decrypt early and it throws <span class="mono">NOT_YET</span> — for anyone, including the owner.</p></div></div>
-      <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device and signs the schedule with one on-device confirmation. The agent never holds it.</p></div></div>
+      <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device; the owner approves the whole schedule with one on-device confirmation via the Ledger <b>Device Management Kit</b>. The agent never holds it.</p></div></div>
       <div class="card"><span class="ic">🌐</span><div><span class="badge b-blue">ENS</span><h3 style="margin-top:10px">Root of trust</h3><p>The signed schedule + issuer address live on an ENS name. The agent reads its rules there and <b>refuses</b> if the signature doesn't verify.</p></div></div>
       <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Money + audit log</h3><p>One funded account per period (a ledger-enforced cap), x402 payments via Blocky402, and an HCS log of ciphertexts + encrypted receipts.</p></div></div>
     </div>
@@ -374,9 +374,9 @@
         <p><span class="mono" style="color:var(--ink)">mujahid.eth</span> holds the signed schedule (<span class="mono">notyet:schedule</span>) and the issuer address (<span class="mono">notyet:issuer</span>). The agent reads its rules here.</p>
         <p class="src" style="margin-top:12px"><a href="https://app.ens.dev/mujahid.eth" target="_blank">ENS name ↗</a> &nbsp;·&nbsp; <a href="https://sepolia.etherscan.io/address/0xA53A6813272A072C52dF7b4876076434ad14fb9B" target="_blank">resolver ↗</a></p></div>
 
-      <div class="card"><span class="badge b-violet">Ledger · Speculos</span>
+      <div class="card"><span class="badge b-violet">Ledger · DMK</span>
         <h3 style="margin-top:12px">Signed by the issuer device</h3>
-        <p>The schedule is personal-signed by the issuer key on an emulated Ledger. Its address is published on ENS and recovers from the signature — tamper with the rules and verification fails.</p>
+        <p>The schedule is signed by the issuer key on a Ledger via the <b>Device Management Kit</b> (Agent Stack), run headless on Speculos. The address is published on ENS and recovers from the signature — tamper with the rules and verification fails.</p>
         <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0xDad7…6D8D</span> &nbsp; <a href="https://sepolia.etherscan.io/address/0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D" target="_blank">issuer ↗</a></p></div>
 
       <div class="card"><span class="badge b-green">Hedera · x402</span>

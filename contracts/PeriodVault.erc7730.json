@@ -1,0 +1,83 @@
+{
+  "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-v1.schema.json",
+  "context": {
+    "contract": {
+      "deployments": [
+        { "chainId": 296, "address": "0x0000000000000000000000000000000000000000" }
+      ],
+      "abi": [
+        { "type": "function", "name": "deposit", "stateMutability": "payable", "inputs": [], "outputs": [] },
+        {
+          "type": "function", "name": "commitPeriod", "stateMutability": "nonpayable", "outputs": [],
+          "inputs": [
+            { "name": "i", "type": "uint256" },
+            { "name": "signer", "type": "address" },
+            { "name": "budget", "type": "uint256" },
+            { "name": "start", "type": "uint64" },
+            { "name": "end", "type": "uint64" },
+            { "name": "perTxMax", "type": "uint256" }
+          ]
+        },
+        {
+          "type": "function", "name": "withdraw", "stateMutability": "nonpayable", "outputs": [],
+          "inputs": [
+            { "name": "i", "type": "uint256" },
+            { "name": "amt", "type": "uint256" },
+            { "name": "av", "type": "uint8" }, { "name": "ar", "type": "bytes32" }, { "name": "asig", "type": "bytes32" },
+            { "name": "ov", "type": "uint8" }, { "name": "or_", "type": "bytes32" }, { "name": "osig", "type": "bytes32" }
+          ]
+        },
+        { "type": "function", "name": "reclaim", "stateMutability": "nonpayable", "inputs": [{ "name": "i", "type": "uint256" }], "outputs": [] }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "NotYet",
+    "info": {
+      "legalName": "NotYet — scheduled agent spend authority",
+      "url": "https://notyet.up.railway.app",
+      "note": "Clear-signing descriptor for PeriodVault. Replace deployments[].address with the deployed contract id's EVM address (0x + ContractId.toSolidityAddress()) after `npm run gate:vault`."
+    },
+    "constants": {
+      "nativeSymbol": "HBAR"
+    }
+  },
+  "display": {
+    "formats": {
+      "deposit()": {
+        "intent": "Fund the NotYet vault",
+        "fields": [
+          { "path": "@.value", "label": "Deposit", "format": "amount" }
+        ],
+        "required": ["@.value"]
+      },
+      "commitPeriod(uint256,address,uint256,uint64,uint64,uint256)": {
+        "intent": "Commit a spend period",
+        "fields": [
+          { "path": "i", "label": "Period #", "format": "raw" },
+          { "path": "signer", "label": "Agent spend key", "format": "addressName", "params": { "types": ["eoa"] } },
+          { "path": "budget", "label": "Budget", "format": "amount" },
+          { "path": "start", "label": "Opens", "format": "date", "params": { "encoding": "timestamp" } },
+          { "path": "end", "label": "Closes", "format": "date", "params": { "encoding": "timestamp" } },
+          { "path": "perTxMax", "label": "Auto-approve up to", "format": "amount" }
+        ],
+        "required": ["i", "signer", "budget", "start", "end", "perTxMax"]
+      },
+      "withdraw(uint256,uint256,uint8,bytes32,bytes32,uint8,bytes32,bytes32)": {
+        "intent": "Release a scheduled payment",
+        "fields": [
+          { "path": "i", "label": "Period #", "format": "raw" },
+          { "path": "amt", "label": "Release", "format": "amount" }
+        ],
+        "required": ["i", "amt"]
+      },
+      "reclaim(uint256)": {
+        "intent": "Reclaim unspent budget (after the period ends)",
+        "fields": [
+          { "path": "i", "label": "Period #", "format": "raw" }
+        ],
+        "required": ["i"]
+      }
+    }
+  }
+}

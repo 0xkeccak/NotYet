@@ -1,0 +1,44 @@
+{
+  "name": "hedera-mirror-testnet",
+  "description": "Hedera Mirror Node REST API (testnet). Independent, keyless read access to consensus data — used to confirm that a NotYet settlement or scheduled/withdrawn transfer actually executed.",
+  "baseUrl": "https://testnet.mirrornode.hedera.com",
+  "auth": "none",
+  "operations": [
+    {
+      "id": "transaction",
+      "method": "GET",
+      "path": "/api/v1/transactions/{transactionId}",
+      "summary": "Look up a transaction by id; confirm result=SUCCESS and the transfers.",
+      "params": [{ "name": "transactionId", "in": "path", "type": "string", "required": true }]
+    },
+    {
+      "id": "accountTransactions",
+      "method": "GET",
+      "path": "/api/v1/transactions",
+      "summary": "List transfers for an account — confirm the merchant received a settlement.",
+      "params": [
+        { "name": "account.id", "in": "query", "type": "string", "required": true },
+        { "name": "transactiontype", "in": "query", "type": "string", "required": false },
+        { "name": "result", "in": "query", "type": "string", "required": false },
+        { "name": "order", "in": "query", "type": "string", "required": false }
+      ]
+    },
+    {
+      "id": "schedule",
+      "method": "GET",
+      "path": "/api/v1/schedules/{scheduleId}",
+      "summary": "Read a scheduled transaction's state — confirm executed_timestamp is set.",
+      "params": [{ "name": "scheduleId", "in": "path", "type": "string", "required": true }]
+    },
+    {
+      "id": "contractResult",
+      "method": "GET",
+      "path": "/api/v1/contracts/{contractIdOrAddress}/results/{transactionIdOrHash}",
+      "summary": "Read a PeriodVault withdraw/reclaim result — confirm the on-chain release.",
+      "params": [
+        { "name": "contractIdOrAddress", "in": "path", "type": "string", "required": true },
+        { "name": "transactionIdOrHash", "in": "path", "type": "string", "required": true }
+      ]
+    }
+  ]
+}

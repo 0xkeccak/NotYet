@@ -36,8 +36,9 @@ period i  ──tlock.encrypt(spendKey_i, round_i)──▶  ciphertext_i   (pub
 - **drand / tlock** — *the lock.* Binds each key to a wall-clock moment. No key server.
 - **Hedera** — *root of trust + money + audit.* One HCS topic carries the signed schedule
   (the agent reads it back and **refuses** unless it recovers to the trusted issuer), the
-  ciphertexts, and the encrypted receipts. One funded account per period is a ledger-enforced
-  budget cap. x402 payments settle via the keyless Blocky402 facilitator.
+  ciphertexts, and the encrypted receipts. The budget cap is enforced by the **PeriodVault**
+  contract (`spent_i ≤ budget_i`, on-chain, HashScan-visible) — see below. x402 payments
+  settle via the keyless Blocky402 facilitator.
 - **MCP / Bazantic** — *reach.* The capability is exposed as MCP tools so other agents can
   pay through Notyet, inheriting the one-period blast radius.
 
@@ -45,6 +46,35 @@ One chain, **no bridge**: Hedera holds value, the audit log, *and* the rules the
 verifies. The trust anchor is simply the issuer address the agent is configured to trust —
 there is nothing to bridge. (An optional human-readable ENS identity layer, using ENSIP-25/26
 agent text records, lives on the `ens` branch.)
+
+## Settlement — PeriodVault (one contract, not N wallets)
+
+The spend authority is gated by **time in a contract**, not by a funded account per period.
+One `PeriodVault` on Hedera EVM holds the treasury; the owner commits a schedule:
+
+```
+periods[i] = { signer: address(k_i), budget, [start, end], perTxMax, spent }
+```
+
+`k_i` is generated in software, its address committed on-chain, then timelock-encrypted and
+wiped — so the agent holds only ciphertexts. To spend, the agent calls
+`withdraw(i, amt, sig)`; the contract requires, on-chain:
+
+- **window** — `start_i ≤ now ≤ end_i` (a key is useless before *and* after its period),
+- **identity** — `ecrecover(digest) == address(k_i)` (proves possession of the unlocked key),
+- **budget** — `spent_i + amt ≤ budget_i`,
+- **HITL** — if `amt > perTxMax_i`, the owner's Ledger key (`approver`) must co-sign — the
+  explicit-approval boundary above the autonomous ceiling.
+
+The signature is domain-bound (contract, chainid, i, amt, spent-nonce, role) so it can't be
+replayed. `reclaim(i)` returns the unspent remainder to the owner **only after `end_i`** — the
+owner can get their money back but can never pull a live period forward. One account, one
+readable policy; a compromised agent still loses at most one period's budget.
+
+> Rollout note: the contract (`contracts/PeriodVault.sol`), client (`sdk/vault.ts`) and gate
+> (`scripts/test-vault.ts`) are complete; the signature↔ecrecover path is verified offline.
+> The live demo keeps the earlier per-period-account path until the on-chain gate is run
+> against a funded payer, then swaps to the vault.
 
 ## Flow 1 — Issue (Human → Agent, once)
 

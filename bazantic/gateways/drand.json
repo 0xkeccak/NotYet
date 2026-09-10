@@ -1,0 +1,27 @@
+{
+  "name": "drand-quicknet",
+  "description": "Public drand randomness beacon (quicknet). One BLS signature every 3s; the round-R signature is the timelock decryption key for round R. Keyless, public.",
+  "baseUrl": "https://api.drand.sh",
+  "auth": "none",
+  "operations": [
+    {
+      "id": "chainInfo",
+      "method": "GET",
+      "path": "/v2/beacons/quicknet/info",
+      "summary": "Beacon parameters (genesis time, period seconds, chain hash). Use to compute the current round = floor((now - genesis)/period) + 1."
+    },
+    {
+      "id": "latest",
+      "method": "GET",
+      "path": "/v2/beacons/quicknet/rounds/latest",
+      "summary": "Latest published round and its signature."
+    },
+    {
+      "id": "roundByNumber",
+      "method": "GET",
+      "path": "/v2/beacons/quicknet/rounds/{round}",
+      "summary": "Signature for a specific round. 404/absent until that round is reached — i.e. the key literally does not exist yet.",
+      "params": [{ "name": "round", "in": "path", "type": "integer", "required": true }]
+    }
+  ]
+}

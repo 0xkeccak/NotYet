@@ -8,6 +8,8 @@
   releasing a key early.
 - Loss from a compromised agent is bounded by one period's account balance.
 - Audit disclosure is scoped per period — one view key reveals one period, nothing else.
+- With **PeriodVault**, a period's key is useless **outside its [start, end] window** and
+  **beyond its budget** — both enforced on-chain by the contract, not by convention.
 
 ## We do not claim
 
@@ -18,8 +20,14 @@
 - **Revocation or clawback**, before or after unlock. You can only *not issue* the next
   period (or not fund it). Giving the owner a co-signing key would let them spend anytime
   and break "not even the owner." We chose consistency over a kill switch.
-- **Protection after unlock.** Once live, a period's key is a normal key for that period;
-  blast radius is one account. Pair with spend limits at the service.
+- **Total protection after unlock.** Within its live window a period's key can still spend
+  up to that period's *remaining* budget, so a compromise mid-window costs at most that.
+  PeriodVault bounds this three ways on-chain (window end, budget cap, `perTxMax` requiring
+  the Ledger co-sign) — but it does not make an unlocked, in-window key un-spendable.
+- **A live-run PeriodVault gate (yet).** The contract, client and gate are complete and the
+  signature↔`ecrecover` path is verified offline; the on-chain reverts (window/budget/
+  escalation) are pending a testnet run against a funded payer. Claimed as *built + offline-
+  verified*, not *settled live* — until the gate is green.
 - **Novel cryptography.** tlock is drand's; the application to agent spend authority is
   ours. Not quantum-resistant (BLS/IBE, as drand states).
 - **A physical Ledger device in this build.** The issuer key runs on **Speculos**,

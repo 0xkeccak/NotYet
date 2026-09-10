@@ -16,10 +16,13 @@ import { decryptCiphertext, isNotYet, roundForTime, roundUnlockMs } from "../sdk
 import { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
 import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
 import { payX402 } from "../sdk/pay.js";
+import { mountX402 } from "../service/server.js";
 import type { Receipt } from "../sdk/types.js";
 
 const PORT = Number(process.env.PORT ?? process.env.WEB_PORT ?? 4040); // Railway sets PORT
-const SERVICE_URL = process.env.SERVICE_URL ?? "http://localhost:4021/price";
+// The x402-gated /price is hosted on THIS app (see mountX402 below), so it's public on
+// the hosted URL and the dashboard's own /api/pay hits it on the same port.
+const SERVICE_URL = process.env.SERVICE_URL ?? `http://localhost:${PORT}/price`;
 const payerId = process.env.HEDERA_PAYER_ID!;
 const payerKey = process.env.HEDERA_PAYER_KEY!;
 
@@ -46,6 +49,10 @@ const state: { topicId?: string; periodSec: number; masterView?: Buffer; periods
 const app = express();
 app.use(express.json());
 app.use(express.static(new URL("./public", import.meta.url).pathname));
+
+// Host the real x402-gated service on the public app: GET /price returns 402 with an
+// x402 challenge and settles through Blocky402 when paid. Reachable at <host>/price.
+mountX402(app);
 
 app.post("/api/issue", async (req: Request, res: Response) => {
   const wait = lastIssueMs + ISSUE_COOLDOWN_MS - Date.now();

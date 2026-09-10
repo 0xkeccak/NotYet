@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Notyet — scheduled agent spend authority</title>
 <meta name="description" content="Scheduled agent spend authority where the key doesn't exist until its time. Timelock encryption (drand/tlock) + x402 on Hedera, root-of-trust on ENS, signed on Ledger." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%8F%B3%3C/text%3E%3C/svg%3E" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Notyet" />
+<meta property="og:title" content="Notyet — Tuesday's key doesn't exist until Tuesday" />
+<meta property="og:description" content="Scheduled agent spend authority where each period's spend key is encrypted to the future — it can't be used, leaked, or coerced open before its time. Not by the agent. Not by you." />
+<meta property="og:url" content="https://notyet.up.railway.app" />
+<meta property="og:image" content="https://notyet.up.railway.app/og.svg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Notyet — Tuesday's key doesn't exist until Tuesday" />
+<meta name="twitter:description" content="Timelocked agent spend authority (drand/tlock) settled via x402 on Hedera, root-of-trust on ENS, signed on Ledger. Live demo you can run." />
+<meta name="twitter:image" content="https://notyet.up.railway.app/og.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -159,6 +170,29 @@
   .out .err{color:#ff7a6b}
   .st{display:flex;flex-direction:column;gap:6px}
 
+  /* workflow stepper */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:26px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+  .flow .step{flex:1 1 150px;min-width:140px;padding:16px 16px;border-right:1px solid var(--line);position:relative}
+  .flow .step:last-child{border-right:0}
+  .flow .n{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.1em}
+  .flow .t{font-weight:600;margin-top:5px;font-size:15px;letter-spacing:-.01em}
+  .flow .d{color:var(--dim);font-size:12.5px;margin-top:3px;line-height:1.45}
+  .flow .step.hot{background:var(--yellow-tint)}
+  .flow .step.hot .t{color:var(--gold)}
+  @media(max-width:720px){.flow .step{flex-basis:46%;border-bottom:1px solid var(--line)}}
+
+  /* AI schedule input */
+  .ai{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--paper2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+  .ai .txt{flex:1 1 320px;min-width:220px;width:auto;font-family:var(--sans);font-size:14.5px}
+  .ai .sparkle{font-size:15px}
+  .ai .parsed{width:100%;font-size:13px;color:var(--gold);font-family:var(--mono);margin-top:2px}
+
+  /* settlements */
+  .settle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px dashed var(--line)}
+  .settle:last-child{border-bottom:0}
+  .settle .amt2{font-family:var(--mono);color:var(--green);font-size:13px}
+  .settle .when{font-size:12.5px;color:var(--faint)}
+
   /* section soft-alt background */
   .alt{background:var(--paper2)}
 
@@ -261,11 +295,15 @@
 <section id="usecases" class="alt">
   <div class="wrap">
     <p class="eyebrow">Who it's for</p>
-    <h2 class="serif">Pre-commit the month. Walk away. Nothing can be pulled forward.</h2>
+    <h2 class="serif">Pre-commit the schedule. Walk away. Nothing can be pulled forward.</h2>
+    <p class="lead" style="margin-top:16px">Anywhere an autonomous agent spends money on a cadence, the same rule holds: a bad day costs one period, never the whole plan.</p>
     <div class="grid g3" style="margin-top:30px">
-      <div class="card"><h3>DAO / fund → trading bot</h3><p>A daily budget the bot can't front-run. Hacked on day 3 → it loses one day, not the treasury.</p></div>
-      <div class="card"><h3>Company → procurement agent</h3><p>Finance pre-signs the month on Ledger and leaves. No standing key for anyone to steal.</p></div>
-      <div class="card"><h3>Research fleet → paid APIs</h3><p>Each shift gets one x402 key; a leaked key dies at shift end. Every call logged to HCS.</p></div>
+      <div class="card"><span class="kicker">DAO / fund → trading bot</span><h3 style="margin-top:8px">Daily budget it can't front-run</h3><p>The bot trades within today's allowance. <b>Hacked on day 3 → it loses one day, not the treasury.</b></p></div>
+      <div class="card"><span class="kicker">Company → procurement agent</span><h3 style="margin-top:8px">Finance signs once, then leaves</h3><p>The month is pre-signed on Ledger and published to ENS. <b>No standing key for anyone to steal or subpoena.</b></p></div>
+      <div class="card"><span class="kicker">Research fleet → paid APIs</span><h3 style="margin-top:8px">One x402 key per shift</h3><p>Each shift unlocks its own key; a leaked one dies at shift end. <b>Every call logged to HCS for audit.</b></p></div>
+      <div class="card"><span class="kicker">You → personal assistant</span><h3 style="margin-top:8px">A daily allowance for tools</h3><p>Your agent gets, say, $10/day for data and APIs. <b>Prompt-inject it and the blast radius is one day.</b></p></div>
+      <div class="card"><span class="kicker">Creator → autonomous ops</span><h3 style="margin-top:8px">A week of tipping or ad spend</h3><p>Pre-fund a week of promos or tips. <b>The agent can't blow the quarter on one bad prompt.</b></p></div>
+      <div class="card"><span class="kicker">Treasury → streamed grants</span><h3 style="margin-top:8px">Tranches that unlock on time</h3><p>Grant tranches decrypt on their date. <b>No multisig ceremony can release next month's early.</b></p></div>
     </div>
   </div>
 </section>
@@ -276,12 +314,29 @@
     <h2 class="serif">Issue a schedule. Watch a key refuse to exist.</h2>
     <p class="lead" style="margin-top:16px">This runs for real: each period gets a funded Hedera account and a key timelocked to a drand round. Try a locked period → <span class="mono">NOT_YET</span>. When its round arrives → unlock, pay a real x402 service, settle on HashScan.</p>
 
-    <div class="card" style="margin-top:28px">
+    <div class="flow">
+      <div class="step"><div class="n">STEP 1</div><div class="t">Issue</div><div class="d">Fund N periods, timelock each key, post to HCS.</div></div>
+      <div class="step"><div class="n">STEP 2</div><div class="t">Timelock</div><div class="d">Each key is sealed to a future drand round.</div></div>
+      <div class="step hot"><div class="n">STEP 3</div><div class="t">NOT_YET</div><div class="d">Try a locked period early → the key doesn't exist.</div></div>
+      <div class="step"><div class="n">STEP 4</div><div class="t">Unlock</div><div class="d">On its round, drand's signature decrypts the key.</div></div>
+      <div class="step"><div class="n">STEP 5</div><div class="t">Pay · x402</div><div class="d">The key signs a real Hedera settlement.</div></div>
+      <div class="step"><div class="n">STEP 6</div><div class="t">Audit</div><div class="d">One view key opens only its period's receipts.</div></div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
       <div class="head">
         <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
         <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
       </div>
-      <div class="body"><div id="issueOut" class="out" style="display:none"></div></div>
+      <div class="body">
+        <div class="ai">
+          <span class="sparkle">✦</span>
+          <input class="txt" id="aiText" type="text" placeholder="Describe a budget in plain English — e.g. “$5 each day for 5 days”" />
+          <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
+          <div class="parsed" id="aiParsed" style="display:none"></div>
+        </div>
+        <div id="issueOut" class="out" style="display:none"></div>
+      </div>
     </div>
 
     <div class="card" style="margin-top:16px">
@@ -295,6 +350,14 @@
         <div class="row">period <input id="auditIdx" type="number" value="0" min="0" max="4"/><button class="btn ghost" id="audit">Decrypt</button></div>
       </div>
       <div class="body"><div id="auditOut" class="out" style="display:none"></div></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="head">
+        <div><b>Recent settlements</b> <span class="small">— real x402 payments already settled by this demo, live from Hedera</span></div>
+        <a class="small" id="merchantLink" href="https://hashscan.io/testnet/account/0.0.10436969" target="_blank">merchant account ↗</a>
+      </div>
+      <div class="body"><div id="recent"><p class="small">loading recent settlements…</p></div></div>
     </div>
   </div>
 </section>
@@ -348,24 +411,33 @@
     <div class="term" style="margin-top:26px;max-width:none">
       <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
         <span class="fn">agent/loop.ts</span></div>
-      <pre><span class="c-violet">import</span> { resolveSchedule } <span class="c-violet">from</span> <span class="c-green">"notyet/agent/resolve"</span>
-<span class="c-violet">import</span> { decryptCiphertext } <span class="c-violet">from</span> <span class="c-green">"notyet/sdk/tlock"</span>
-<span class="c-violet">import</span> { payX402 } <span class="c-violet">from</span> <span class="c-green">"notyet/sdk/pay"</span>
+      <pre><span class="c-violet">import</span> { resolveSchedule, decryptCiphertext, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"notyet"</span>
 
-<span class="c-dim">// read the rules from ENS and verify the issuer's signature</span>
-<span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(rpc, <span class="c-green">"mujahid.eth"</span>)
+<span class="c-dim">// 1 · read the rules from ENS + verify the issuer's signature</span>
+<span class="c-dim">//     (throws UntrustedScheduleError if the signature doesn't match)</span>
+<span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(rpcUrl, <span class="c-green">"mujahid.eth"</span>)
+<span class="c-blue">const</span> period = schedule.periods[now]
 
-<span class="c-dim">// each period: unlock (throws NOT_YET before its round) then pay</span>
-<span class="c-blue">const</span> key = (<span class="c-violet">await</span> decryptCiphertext(ciphertext)).toString()
-<span class="c-violet">await</span> payX402(serviceUrl, { accountId, privateKey: key })</pre>
+<span class="c-violet">try</span> {
+  <span class="c-dim">// 2 · unlock this period's spend key (does not exist before its round)</span>
+  <span class="c-blue">const</span> key = (<span class="c-violet">await</span> decryptCiphertext(period.ciphertext)).toString()
+
+  <span class="c-dim">// 3 · pay the x402 service — the key signs a real Hedera settlement</span>
+  <span class="c-blue">const</span> { hashscan } = <span class="c-violet">await</span> payX402(serviceUrl, {
+    accountId: period.accountId, privateKey: key,
+  })
+} <span class="c-violet">catch</span> (e) {
+  <span class="c-violet">if</span> (isNotYet(e)) <span class="c-violet">return</span> <span class="c-dim">// NOT_YET — come back on this period's round</span>
+  <span class="c-violet">throw</span> e
+}</pre>
     </div>
   </div>
 </section>
 
 <footer><div class="wrap">
   <p class="closing serif">Tuesday's key does not exist until Tuesday.</p>
-  <div class="brand" style="margin-top:28px;font-size:20px"><span class="dot">⏳</span> notyet</div>
-  <p style="margin:12px 0 0;max-width:60ch">Scheduled agent spend authority where the key doesn't exist until its time. Built for ETHOnline 2026.</p>
+  <div class="brand" style="margin-top:30px;font-size:38px"><span class="dot" style="font-size:32px">⏳</span> notyet</div>
+  <p style="margin:14px 0 0;max-width:60ch;font-size:16px">Scheduled agent spend authority where the key doesn't exist until its time. Built for ETHOnline 2026 · <a href="https://notyet.up.railway.app" target="_blank">notyet.up.railway.app</a></p>
   <div class="tracks">
     <span class="chip">⚡ Hedera — AI &amp; Agentic Payments</span>
     <span class="chip">🔑 Ledger — AI Agents</span>
@@ -437,9 +509,48 @@ async function pay(index){
 $("audit").onclick=async()=>{
   $("auditOut").style.display="block";$("auditOut").textContent="decrypting…";
   const r=await api("/api/audit",{index:Number($("auditIdx").value)});
-  if(r.error){$("auditOut").innerHTML='<span class="err">'+r.error+'</span>';return;}
+  if(r.error){
+    const hint=/no active/i.test(r.error)?'\n\nIssue a schedule above first, then decrypt. Real past settlements are listed under “Recent settlements” below.':'';
+    $("auditOut").innerHTML='<span class="err">'+r.error+'</span>'+hint;return;}
   $("auditOut").textContent=`period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n`+r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n")+`\n\nscoped: ${r.scopedProof}`;
 };
+
+// ---- AI-style scheduling: plain English → a schedule ----
+function planFromText(s){
+  s=(s||"").toLowerCase();
+  const amtM=s.match(/\$?\s*(\d+(?:\.\d+)?)\s*(?:dollars?|usd|bucks?)?/);
+  const durM=s.match(/(?:for\s+)?(\d+)\s*(day|week|hour|shift|period|month)s?/);
+  const cadMap={daily:"day",weekly:"week",hourly:"hour"};
+  let cadence=(s.match(/\b(daily|weekly|hourly|day|week|hour|shift|period|month)\b/)||[])[1]||"period";
+  cadence=cadMap[cadence]||cadence;
+  let count=durM?parseInt(durM[1]):null;
+  if(count==null){if(/\bweek\b/.test(s))count=7;else if(/\bmonth\b/.test(s))count=30;}
+  return {amount:amtM?amtM[1]:null, count, cadence};
+}
+$("aiPlan").onclick=()=>{
+  const p=planFromText($("aiText").value);
+  let count=p.count??3; const capped=count>5; count=Math.max(1,Math.min(5,count));
+  $("count").value=count;
+  const amt=p.amount?`$${p.amount}`:"a set budget";
+  $("aiParsed").style.display="block";
+  $("aiParsed").textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${capped?" (demo caps at 5 periods)":""}. Now hit “Issue schedule”.`;
+};
+$("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click();});
+
+// ---- recent settlements (real, from the merchant account on Hedera) ----
+function timeAgo(ms){const s=Math.max(0,(Date.now()-ms)/1000);
+  if(s<60)return Math.round(s)+"s ago";if(s<3600)return Math.round(s/60)+"m ago";
+  if(s<86400)return Math.round(s/3600)+"h ago";return Math.round(s/86400)+"d ago";}
+async function loadRecent(){
+  try{const r=await api("/api/recent");
+    if(r.hashscanAccount)$("merchantLink").href=r.hashscanAccount;
+    if(!r.settlements||!r.settlements.length){$("recent").innerHTML='<p class="small">No settlements yet — run the demo above.</p>';return;}
+    $("recent").innerHTML=r.settlements.map(s=>`<div class="settle">
+      <div><span class="amt2">+${(s.tinybars/1e8).toFixed(3)} ℏ</span> &nbsp; <a class="small mono" href="${s.hashscan}" target="_blank">${s.txId}</a></div>
+      <span class="when">${timeAgo(s.consensusMs)}</span></div>`).join("");
+  }catch(e){$("recent").innerHTML='<p class="small">could not load settlements right now</p>';}
+}
+loadRecent(); setInterval(loadRecent,15000);
 refresh();setInterval(refresh,2000);
 </script>
 </body>

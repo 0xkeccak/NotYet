@@ -139,4 +139,31 @@ app.post("/api/audit", async (req: Request, res: Response) => {
   }
 });
 
+// Recent settlements — real, always-populated history straight from the merchant
+// account on the mirror node (survives restarts and is verifiable on HashScan). This is
+// what makes "show me a past run" work even on a freshly-booted instance.
+const MERCHANT_ID = process.env.HEDERA_MERCHANT_ID!;
+const MIRROR = process.env.HEDERA_NETWORK === "mainnet" ? "https://mainnet.mirrornode.hedera.com" : "https://testnet.mirrornode.hedera.com";
+app.get("/api/recent", async (_req: Request, res: Response) => {
+  try {
+    const url = `${MIRROR}/api/v1/transactions?account.id=${MERCHANT_ID}&transactiontype=cryptotransfer&result=success&order=desc&limit=8`;
+    const data: any = await fetch(url).then((r) => r.json());
+    const items = (data.transactions ?? [])
+      .map((t: any) => {
+        // amount credited to the merchant in this transfer (tinybars)
+        const credit = (t.transfers ?? []).find((x: any) => x.account === MERCHANT_ID && x.amount > 0);
+        return {
+          txId: t.transaction_id,
+          hashscan: `https://hashscan.io/testnet/transaction/${t.transaction_id}`,
+          tinybars: credit?.amount ?? 0,
+          consensusMs: Math.round(Number(t.consensus_timestamp) * 1000),
+        };
+      })
+      .filter((x: any) => x.tinybars > 0); // only inbound settlements, not funding/fees
+    res.json({ merchant: MERCHANT_ID, hashscanAccount: `https://hashscan.io/testnet/account/${MERCHANT_ID}`, settlements: items });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => console.log(`Notyet dashboard on http://localhost:${PORT}`));

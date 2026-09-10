@@ -1,25 +1,44 @@
 /**
- * Agent side: resolve the schedule from ENS and verify it before doing anything.
- * If the signature doesn't match the issuer address published on ENS, the agent
- * refuses — no schedule, no spending.
+ * Agent side: resolve the schedule from Hedera (HCS) and verify it before doing anything.
+ * The trust anchor is the issuer address the agent was configured to trust: if the latest
+ * schedule on the topic isn't signed by that issuer, the agent refuses — no schedule, no
+ * spending. (This is the role ENS used to play; it's now the same Hedera log that carries
+ * everything else — one chain, no bridge.)
  */
-import { readText, SCHEDULE_KEY, ISSUER_KEY } from "../sdk/ens.js";
+import { readMessages } from "../sdk/hcs.js";
 import { verifySchedule } from "../sdk/sign.js";
+import { SCHEDULE_MSG_TYPE } from "../issuer/publish.js";
 import type { SignedSchedule, Schedule } from "../sdk/types.js";
 
 export class UntrustedScheduleError extends Error {}
 
-/** Read + verify the schedule from an ENS name. Throws if missing or signature invalid. */
-export async function resolveSchedule(rpcUrl: string, ensName: string): Promise<Schedule> {
-  const raw = await readText(rpcUrl, ensName, SCHEDULE_KEY);
-  if (!raw) throw new UntrustedScheduleError(`no ${SCHEDULE_KEY} record on ${ensName}`);
+/**
+ * Read the latest signed schedule from an HCS topic and verify it against `expectedIssuer`.
+ * Throws UntrustedScheduleError if none is found, the issuer doesn't match, or the
+ * signature doesn't verify.
+ */
+export async function resolveSchedule(
+  topicId: string,
+  expectedIssuer: string,
+  network = "hedera:testnet",
+): Promise<Schedule> {
+  const msgs = await readMessages(topicId, network);
 
-  const signed = JSON.parse(raw) as SignedSchedule;
+  // Take the most recent notyet:schedule message on the topic.
+  let signed: SignedSchedule | undefined;
+  for (const m of msgs) {
+    try {
+      const parsed = JSON.parse(m.contents);
+      if (parsed?.type === SCHEDULE_MSG_TYPE && parsed.signed) signed = parsed.signed as SignedSchedule;
+    } catch {
+      // not a schedule message (a ciphertext or receipt) — skip
+    }
+  }
+  if (!signed) throw new UntrustedScheduleError(`no ${SCHEDULE_MSG_TYPE} message on topic ${topicId}`);
 
-  // The issuer address must match what's independently published on ENS…
-  const issuerOnEns = await readText(rpcUrl, ensName, ISSUER_KEY);
-  if (issuerOnEns.toLowerCase() !== signed.schedule.issuerPubKey.toLowerCase()) {
-    throw new UntrustedScheduleError(`issuer mismatch: ${ISSUER_KEY} record != schedule.issuerPubKey`);
+  // Trust anchor: the schedule must be signed by the issuer the agent was told to trust…
+  if (signed.schedule.issuerPubKey.toLowerCase() !== expectedIssuer.toLowerCase()) {
+    throw new UntrustedScheduleError(`issuer mismatch: schedule issuer ${signed.schedule.issuerPubKey} != expected ${expectedIssuer}`);
   }
   // …and the signature must verify against it.
   if (!(await verifySchedule(signed))) {

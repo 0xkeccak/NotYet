@@ -6,7 +6,7 @@ import { roundForTime } from "../sdk/tlock.js";
 import type { Schedule, Period } from "../sdk/types.js";
 
 export interface ScheduleParams {
-  ensName: string;
+  agentId: string; // human label / agent id (e.g. an ENS name), not load-bearing
   network: string; // "hedera:testnet"
   asset: string; // "0.0.0" (HBAR tinybars) or HTS token id
   issuerPubKey: string;
@@ -32,7 +32,7 @@ export function buildSchedule(p: ScheduleParams): Schedule {
     });
   }
   return {
-    ensName: p.ensName,
+    agentId: p.agentId,
     network: p.network,
     asset: p.asset,
     hcsTopicId: p.hcsTopicId,

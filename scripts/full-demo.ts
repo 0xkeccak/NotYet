@@ -1,14 +1,15 @@
 /**
  * The whole Notyet story in one run, live on testnet — the demo backbone.
  *
- *  ISSUER  (Ledger + Hedera + ENS):
+ *  ISSUER  (Ledger + Hedera):
  *    create HCS topic -> issue N period accounts (fund + timelock spend key) -> post
- *    ciphertexts to HCS -> build schedule -> SIGN IT ON THE (emulated) LEDGER ->
- *    publish signed schedule to ENS.
- *  AGENT   (ENS + tlock + Hedera x402):
- *    resolve schedule from ENS + verify Ledger signature -> read ciphertexts from HCS ->
- *    try a future period early (NOT_YET) -> unlock period 0 on its round -> pay the x402
- *    service from period 0's account (HashScan) -> post an encrypted receipt.
+ *    ciphertexts to HCS -> build schedule -> SIGN IT ON THE (emulated) LEDGER (DMK) ->
+ *    publish the signed schedule to HCS (the root of trust).
+ *  AGENT   (Hedera + tlock + x402):
+ *    resolve schedule from HCS + verify the Ledger signature against the trusted issuer ->
+ *    read ciphertexts from HCS -> try a future period early (NOT_YET) -> unlock period 0
+ *    on its round -> pay the x402 service from period 0's account (HashScan) -> post an
+ *    encrypted receipt.
  *  AUDIT:
  *    decrypt period 0's receipt with its view key; prove other keys can't read it.
  *
@@ -28,10 +29,8 @@ import { publishSchedule } from "../issuer/publish.js";
 import { resolveSchedule } from "../agent/resolve.js";
 import type { Schedule, Receipt } from "../sdk/types.js";
 
-const rpc = process.env.SEPOLIA_RPC_URL!;
-const ownerKey = process.env.ENS_OWNER_KEY as `0x${string}`;
-const ensName = process.env.ENS_NAME ?? "mujahid.eth";
 const SERVICE_URL = process.env.SERVICE_URL ?? "http://localhost:4021/price";
+const agentId = process.env.AGENT_ID ?? "notyet-demo";
 const payerId = process.env.HEDERA_PAYER_ID!;
 const payerKey = process.env.HEDERA_PAYER_KEY!;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -40,11 +39,11 @@ const hedera = () => Client.forTestnet().setOperator(AccountId.fromString(payerI
 // ---------- ISSUER ----------
 console.log("== ISSUER ==");
 const issuer = await ledgerIssuerAddress();
-console.log("issuer (Ledger/Speculos):", issuer);
+console.log("issuer (Ledger/DMK on Speculos):", issuer);
 
 const c = hedera();
 const topicId = await createTopic(c, "notyet-full");
-console.log("HCS topic:", topicId);
+console.log("HCS topic (root of trust + log):", topicId);
 
 const now = Date.now();
 const rounds = [roundForTime(now + 10_000), roundForTime(now + 600_000)]; // p0 soon, p1 far
@@ -58,21 +57,21 @@ for (let i = 0; i < rounds.length; i++) {
 }
 
 const schedule: Schedule = {
-  ensName, network: "hedera:testnet", asset: "0.0.0", hcsTopicId: topicId,
+  agentId, network: "hedera:testnet", asset: "0.0.0", hcsTopicId: topicId,
   issuerPubKey: issuer, periods, createdMs: now,
 };
-console.log("signing schedule on the emulated Ledger…");
+console.log("signing schedule on the emulated Ledger (DMK)…");
 const signed = await signScheduleWithLedger(schedule);
-console.log("publishing signed schedule to", ensName, "…");
-const pub = await publishSchedule(rpc, ownerKey, ensName, signed);
-console.log("  ENS records:", pub.issuerTx.slice(0, 12) + "…,", pub.scheduleTx.slice(0, 12) + "…");
+console.log("publishing signed schedule to HCS…");
+const seq = await publishSchedule(c, topicId, signed);
+console.log(`  signed schedule on HCS (seq ${seq})`);
 c.close();
 
 // ---------- AGENT ----------
 console.log("\n== AGENT ==");
-await sleep(6000); // let ENS + HCS settle on the public RPC / mirror
-const resolved = await resolveSchedule(rpc, ensName);
-console.log(`resolved + verified schedule from ${ensName} (issuer ${resolved.issuerPubKey.slice(0, 10)}…, ${resolved.periods.length} periods)`);
+await sleep(6000); // let the mirror node index the topic
+const resolved = await resolveSchedule(topicId, issuer);
+console.log(`resolved + verified schedule from HCS topic ${topicId} (issuer ${resolved.issuerPubKey.slice(0, 10)}…, ${resolved.periods.length} periods)`);
 
 const msgs = await readMessages(topicId);
 const cts = msgs.map((m) => { try { return JSON.parse(m.contents); } catch { return null; } }).filter((x) => x && x.ciphertext);
@@ -109,5 +108,5 @@ for (const m of all) { try { decryptReceipt(m.contents, v0); read++; } catch {} 
 for (const m of all) { try { decryptReceipt(m.contents, deriveViewKey(master, 1)); } catch { blockedWithNeighbor++; } }
 console.log(`period 0 view key decrypted ${read} receipt(s); ${blockedWithNeighbor}/${all.length} messages unreadable with period 1's key`);
 
-console.log("\nFULL DEMO OK — Ledger signed · ENS verified · timelock enforced · Hedera settled · scoped audit");
+console.log("\nFULL DEMO OK — Ledger (DMK) signed · HCS-verified trust · timelock enforced · Hedera settled · scoped audit");
 process.exit(result.paid ? 0 : 1);

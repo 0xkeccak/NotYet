@@ -14,13 +14,13 @@ export interface Period {
 }
 
 export interface Schedule {
-  /** ENS name that is the root of trust, e.g. "keccak.eth". */
-  ensName: string;
+  /** Human label / agent id (e.g. an ENS name, if used). Not load-bearing for trust. */
+  agentId: string;
   /** Hedera network, e.g. "hedera:testnet". */
   network: string;
   /** Asset id: "0.0.0" for HBAR (tinybars), or an HTS token id. */
   asset: string;
-  /** HCS topic carrying the ciphertexts + encrypted receipts. */
+  /** HCS topic carrying the signed schedule, ciphertexts + encrypted receipts (root of trust). */
   hcsTopicId?: string;
   /** Issuer (master) public key the agent verifies the schedule signature against. */
   issuerPubKey: string;

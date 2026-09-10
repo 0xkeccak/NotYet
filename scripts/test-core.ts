@@ -19,7 +19,7 @@ const check = (name: string, cond: boolean) => {
 const PERIOD_SEC = 120;
 const start = 1_760_000_000_000; // fixed ms so the test is deterministic
 const schedule = buildSchedule({
-  ensName: "keccak.eth",
+  agentId: "notyet-demo",
   network: "hedera:testnet",
   asset: "0.0.0",
   issuerPubKey: "0xISSUER",
@@ -52,7 +52,7 @@ check("view key is 32 bytes", v3a.length === 32);
 // --- schedule signing / verification (ENS root of trust) ---
 const issuerKey = generatePrivateKey();
 const signedSchedule = buildSchedule({
-  ensName: "keccak.eth",
+  agentId: "notyet-demo",
   network: "hedera:testnet",
   asset: "0.0.0",
   issuerPubKey: issuerAddress(issuerKey),

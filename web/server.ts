@@ -67,7 +67,9 @@ app.post("/api/issue", async (req: Request, res: Response) => {
     const now = Date.now();
     const periods: PeriodState[] = [];
     for (let i = 0; i < count; i++) {
-      const round = roundForTime(now + (i === 0 ? 8_000 : i * state.periodSec * 1000));
+      // first period unlocks in ~8s, each next one staggers by the cadence (so a short
+      // demo cadence like 8s plays out as 8s / 16s / 24s — clean for the video)
+      const round = roundForTime(now + 8_000 + i * state.periodSec * 1000);
       const p = await issuePeriod(c, { index: i, round, budgetTinybars: "3000000" });
       await submitMessage(c, topicId, JSON.stringify({ index: i, round, accountId: p.accountId, ciphertext: p.ciphertext }));
       periods.push({ index: i, round, unlockMs: roundUnlockMs(round), accountId: p.accountId, ciphertext: p.ciphertext });

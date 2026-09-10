@@ -285,10 +285,11 @@
     <div class="grid g2 pillars" style="margin-top:32px">
       <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:10px">The lock itself</h3><p>Keys are born on schedule. Decrypt early and it throws <span class="mono">NOT_YET</span> — for anyone, including the owner.</p></div></div>
       <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device; the owner approves the whole schedule with one on-device confirmation via the Ledger <b>Device Management Kit</b>. The agent never holds it.</p></div></div>
-      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Money · audit · trust</h3><p>One funded account per period (a ledger-enforced cap), x402 payments via Blocky402, and an HCS log carrying the ciphertexts, the receipts, <b>and the signed schedule the agent verifies</b>. The agent <b>refuses</b> if the signature doesn't match the trusted issuer.</p></div></div>
+      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Scheduled payments · audit · trust</h3><p>This is a <b>scheduled agentic payment</b>: one funded account per period (a ledger-enforced cap), settled as a real x402 pay-per-call via Blocky402. An HCS log carries the ciphertexts, the receipts, <b>and the signed schedule the agent verifies</b> — it <b>refuses</b> if the signature doesn't match the trusted issuer.</p></div></div>
       <div class="card"><span class="ic">🔗</span><div><span class="badge b-blue">MCP · Bazantic</span><h3 style="margin-top:10px">Any agent can call it</h3><p>The whole capability is exposed as MCP tools, so other agents pay through Notyet — agent-to-agent payments that inherit the timelock's blast-radius bound of one period.</p></div></div>
     </div>
     <p class="small" style="margin-top:22px">One chain, no bridge: Hedera holds the money, the audit log, <i>and</i> the signed rules the agent verifies — there's nothing to bridge. The trust anchor is just the issuer address the agent is told to trust.</p>
+    <p class="lead" style="margin-top:26px"><b>Why not Hedera's native scheduled transactions?</b> A scheduled transaction has to <i>exist</i> ahead of time — it's created, then held pending until it's signed or its time comes. That means the authority to spend already exists early; something is holding a live, future-dated transaction. Notyet schedules the opposite way: it locks the <b>key</b>, not the transaction. Until the round arrives there is nothing to hold, nothing to trigger early, and nothing to leak — the payment can't be built at all, because its signing key doesn't exist yet.</p>
   </div>
 </section>
 
@@ -560,6 +561,9 @@ $("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click(
 // ---- example scenarios (pick one → it configures the demo) ----
 let demoCadence="week", demoPeriodSec=15;
 const SCENARIOS=[
+ {label:"⚡ Quick demo (for the video) · unlocks in seconds", actor:"Owner → agent · compressed for the video",
+  budget:"$5 each period for 3 periods", count:3, cadence:"period", periodSec:8,
+  story:"The owner wants the agent to pay <b>next week</b> — but won't hand it the key today. So they seal a key for each period to a future moment and walk away. <b>For this video the clock is sped up:</b> a “week” becomes <b>~8 seconds</b>, so you can watch a period sit <b>locked → NOT_YET</b>, then unlock and pay on its round in real time. Hit <b>Plan it</b>, then <b>Issue schedule</b>."},
  {label:"You → AI assistant · weekly subscription", actor:"You → AI assistant",
   budget:"$5 each week for 4 weeks", count:4, cadence:"week", periodSec:15,
   story:"Your assistant pays $5/week for a data subscription. You sign the whole month <b>once</b> on your Ledger and walk away — you never hand it your wallet. Hacked this week? It can touch <b>this week's $5 only</b> — next week's key doesn't exist yet."},

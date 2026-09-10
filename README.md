@@ -97,8 +97,10 @@ bash scripts/deploy.sh        # railway up (retries through the free-tier peak w
                               # then generates a public domain and prints the URL
 ```
 
-> **Live URL:** _pending first deploy_ — Railway free tier pins builds to `sfo`, which is
-> unavailable during PT peak hours (8am–8pm); `scripts/deploy.sh` waits out that window.
+> **Live:** **https://notyet-production.up.railway.app** — the landing page and the full
+> live demo (issue → `NOT_YET` → unlock → x402 settle → audit), running against Hedera
+> testnet. (Railway free tier pins builds to `sfo`, closed during PT peak hours 8am–8pm;
+> `scripts/deploy.sh` waits out that window.)
 
 Gate checks (the load-bearing primitives, verified against live services):
 

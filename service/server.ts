@@ -11,7 +11,7 @@
  */
 import "dotenv/config";
 import express, { type Express, type Request, type Response } from "express";
-import { paymentMiddleware, x402ResourceServer } from "@x402/express";
+import { paymentMiddleware, x402ResourceServer, setSettlementOverrides } from "@x402/express";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactHederaScheme } from "@x402/hedera/exact/server";
 
@@ -24,6 +24,13 @@ const ASSET = process.env.X402_ASSET ?? "0.0.0"; // HBAR tinybars by default
 const AMOUNT = process.env.X402_AMOUNT ?? "100000"; // 0.001 HBAR
 // HBAR is 8 decimals (tinybars); HTS tokens (e.g. USDC) are 6.
 const DECIMALS = ASSET === "0.0.0" ? 8 : 6;
+
+// Metering (Hedera bonus: pay-per-call, not flat). /data prices by rows returned. The 402
+// challenge quotes the MAX (perRow * maxRows); the handler settles only what was consumed
+// via x402 partial-settlement (setSettlementOverrides). No overcharge for a small query.
+const METER_PER_ROW = Number(process.env.X402_PER_ROW ?? 2000); // tinybars per row
+const METER_MAX_ROWS = Number(process.env.X402_MAX_ROWS ?? 50);
+const METER_MAX = String(METER_PER_ROW * METER_MAX_ROWS);
 
 /** Attach the x402-gated /price feed (and /health) to an existing Express app. */
 export function mountX402(app: Express): void {
@@ -53,6 +60,16 @@ export function mountX402(app: Express): void {
           description: "Notyet demo price feed — pay per call, no API key.",
           mimeType: "application/json",
         },
+        "GET /data": {
+          accepts: {
+            scheme: "exact",
+            network: NETWORK,
+            payTo: MERCHANT,
+            price: { asset: ASSET, amount: METER_MAX },
+          },
+          description: `Notyet metered feed — billed ${METER_PER_ROW} tinybars/row (max ${METER_MAX_ROWS}); only rows consumed are settled.`,
+          mimeType: "application/json",
+        },
       },
       resourceServer,
     ),
@@ -61,6 +78,21 @@ export function mountX402(app: Express): void {
   app.get("/price", (_req: Request, res: Response) => {
     // In a real service this is a metered resource; here it's a deterministic mock.
     res.json({ pair: "HBAR/USD", price: 0.0712, ts: new Date().toISOString(), source: "notyet-demo" });
+  });
+
+  // Metered resource: caller asks for N rows, pays only for N (partial settlement).
+  app.get("/data", (req: Request, res: Response) => {
+    const asked = Number(Array.isArray(req.query.rows) ? req.query.rows[0] : req.query.rows) || 1;
+    const rows = Math.max(1, Math.min(METER_MAX_ROWS, Math.floor(asked)));
+    const billed = rows * METER_PER_ROW;
+    // Settle only what was consumed, not the quoted max.
+    setSettlementOverrides(res, { amount: String(billed) });
+    const now = Date.now();
+    res.json({
+      rows: Array.from({ length: rows }, (_, i) => ({ i, pair: "HBAR/USD", price: 0.0712, ts: new Date(now - i * 1000).toISOString() })),
+      metering: { rows, perRowTinybars: METER_PER_ROW, billedTinybars: billed, quotedMaxTinybars: Number(METER_MAX) },
+      source: "notyet-demo",
+    });
   });
 }
 

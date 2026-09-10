@@ -188,13 +188,13 @@
   .ai .parsed{width:100%;font-size:13px;color:var(--gold);font-family:var(--mono);margin-top:2px}
 
   /* example scenario picker */
-  .scene{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
-  .scene .row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .scene-select{display:flex;align-items:center;gap:9px}
   select{background:var(--paper);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:9px 12px;font-family:var(--sans);font-size:14.5px;max-width:100%;cursor:pointer}
   select:focus{outline:none;border-color:var(--gold)}
-  .scene .story{font-size:14.5px;color:var(--ink2);background:var(--paper2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;line-height:1.55}
-  .scene .story b{color:var(--ink)}
-  .scene .actor{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:6px}
+  .story{font-size:15px;color:var(--ink2);background:var(--paper2);border:1px solid var(--line);border-radius:12px;padding:15px 17px;line-height:1.6}
+  .story b{color:var(--ink)}
+  .story .actor{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:7px}
+  @media(max-width:620px){.scene-card .head{flex-direction:column;align-items:flex-start}}
 
   /* settlements */
   .settle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px dashed var(--line)}
@@ -323,6 +323,21 @@
     <h2 class="serif">Issue a schedule. Watch a key refuse to exist.</h2>
     <p class="lead" style="margin-top:16px">This runs for real: each period gets a funded Hedera account and a key timelocked to a drand round. Try a locked period → <span class="mono">NOT_YET</span>. When its round arrives → unlock, pay a real x402 service, settle on HashScan.</p>
 
+    <div class="card scene-card" style="margin-top:26px">
+      <div class="head"><div><b>Pick a scenario</b> <span class="small">— a real budget an agent could run</span></div>
+        <div class="scene-select"><span class="small">Example</span><select id="scenario" aria-label="Pick an example scenario"></select></div>
+      </div>
+      <div class="body">
+        <div class="story" id="scenarioStory"></div>
+        <div class="ai" style="margin:14px 0 0">
+          <span class="sparkle">✦</span>
+          <input class="txt" id="aiText" type="text" placeholder="…or describe your own — e.g. “$5 each day for 5 days”" />
+          <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
+          <div class="parsed" id="aiParsed" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="flow">
       <div class="step"><div class="n">STEP 1</div><div class="t">Issue</div><div class="d">Fund N periods, timelock each key, post to HCS.</div></div>
       <div class="step"><div class="n">STEP 2</div><div class="t">Timelock</div><div class="d">Each key is sealed to a future drand round.</div></div>
@@ -337,20 +352,7 @@
         <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
         <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
       </div>
-      <div class="body">
-        <div class="scene">
-          <div class="row2"><span class="small">Example:</span>
-            <select id="scenario" aria-label="Pick an example scenario"></select></div>
-          <div class="story" id="scenarioStory"></div>
-        </div>
-        <div class="ai">
-          <span class="sparkle">✦</span>
-          <input class="txt" id="aiText" type="text" placeholder="…or describe your own in plain English — e.g. “$5 each day for 5 days”" />
-          <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
-          <div class="parsed" id="aiParsed" style="display:none"></div>
-        </div>
-        <div id="issueOut" class="out" style="display:none"></div>
-      </div>
+      <div class="body"><div id="issueOut" class="out" style="display:none"></div></div>
     </div>
 
     <div class="card" style="margin-top:16px">

@@ -16,6 +16,7 @@ import { decryptCiphertext, isNotYet, roundForTime, roundUnlockMs } from "../sdk
 import { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
 import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
 import { payX402 } from "../sdk/pay.js";
+import { createScheduledTransfer, signScheduled, scheduleStatus, txIdToHashscan } from "../sdk/scheduled.js";
 import { mountX402 } from "../service/server.js";
 import type { Receipt } from "../sdk/types.js";
 
@@ -45,6 +46,20 @@ const state: { topicId?: string; periodSec: number; masterView?: Buffer; periods
   periodSec: 15, // short by default so the whole cycle plays in under a minute (demo/video)
   periods: [],
 };
+
+// A single active scheduled transfer (HIP-423 "sign-on-unlock" mode). Demo-scale, in-memory.
+interface SchedState {
+  scheduleId: string;
+  scheduledTxId: string;
+  round: number;
+  unlockMs: number;
+  accountId: string;
+  ciphertext: string;
+  tinybars: number;
+  executed?: { tx: string; hashscan: string };
+}
+let sched: SchedState | undefined;
+let lastSchedMs = 0;
 
 const app = express();
 app.use(express.json());
@@ -173,6 +188,87 @@ app.get("/api/recent", async (_req: Request, res: Response) => {
     res.json({ merchant: MERCHANT_ID, hashscanAccount: `https://hashscan.io/testnet/account/${MERCHANT_ID}`, settlements: items });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ---- Scheduled transfer (HIP-423, sign-on-unlock) ----
+// Pick a time → we create + fund a period account, timelock its key to that round, and
+// post a PENDING scheduled transfer (from that account → merchant) with no signature.
+// It's public and inert on-chain. At the round the agent decrypts the key and signs;
+// only then does it execute. Nobody ever holds the key early — that's the whole point.
+app.post("/api/schedule", async (req: Request, res: Response) => {
+  const wait = lastSchedMs + ISSUE_COOLDOWN_MS - Date.now();
+  if (wait > 0) return res.status(429).json({ error: `cooling down — try again in ${Math.ceil(wait / 1000)}s` });
+  lastSchedMs = Date.now();
+  try {
+    const seconds = Math.max(8, Math.min(300, Number(req.body?.seconds ?? 10)));
+    const amtHbar = Math.max(0.01, Math.min(0.1, Number(req.body?.amount ?? 0.02)));
+    const tinybars = Math.round(amtHbar * 1e8);
+    const round = roundForTime(Date.now() + seconds * 1000);
+    const c = client();
+    // fund the sender a little above the transfer so it can cover the debit (fees are on the operator)
+    const p = await issuePeriod(c, { index: 0, round, budgetTinybars: String(tinybars + 1_000_000) });
+    const { scheduleId, scheduledTxId } = await createScheduledTransfer(c, {
+      fromAccountId: p.accountId,
+      toAccountId: MERCHANT_ID,
+      tinybars,
+      expirationSec: seconds + 300, // generous deadline so the unlocked key can still sign
+    });
+    c.close();
+    sched = { scheduleId, scheduledTxId, round, unlockMs: roundUnlockMs(round), accountId: p.accountId, ciphertext: p.ciphertext, tinybars };
+    res.json({
+      scheduleId,
+      accountId: p.accountId,
+      round,
+      amount: amtHbar,
+      secondsToUnlock: seconds,
+      hashscanSchedule: `https://hashscan.io/testnet/schedule/${scheduleId}`,
+      hashscanAccount: `https://hashscan.io/testnet/account/${p.accountId}`,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/schedule/status", async (_req: Request, res: Response) => {
+  if (!sched) return res.json({ none: true });
+  const now = Date.now();
+  if (!sched.executed) {
+    const st = await scheduleStatus(sched.scheduleId).catch(() => ({ executed: false }));
+    if (st.executed) sched.executed = { tx: sched.scheduledTxId, hashscan: txIdToHashscan(sched.scheduledTxId) };
+  }
+  res.json({
+    scheduleId: sched.scheduleId,
+    accountId: sched.accountId,
+    round: sched.round,
+    amount: sched.tinybars / 1e8,
+    hashscanSchedule: `https://hashscan.io/testnet/schedule/${sched.scheduleId}`,
+    hashscanAccount: `https://hashscan.io/testnet/account/${sched.accountId}`,
+    state: sched.executed ? "executed" : now >= sched.unlockMs ? "ready" : "locked",
+    secondsToUnlock: Math.max(0, Math.round((sched.unlockMs - now) / 1000)),
+    executed: sched.executed,
+  });
+});
+
+app.post("/api/schedule/execute", async (_req: Request, res: Response) => {
+  if (!sched) return res.status(404).json({ error: "no scheduled transfer" });
+  if (sched.executed) return res.json({ executed: true, ...sched.executed });
+  try {
+    // decrypt throws NOT_YET before the round — no key, so no signature, so it can't fire
+    const key = (await decryptCiphertext(sched.ciphertext)).toString("utf8");
+    const c = client();
+    const status = await signScheduled(c, sched.scheduleId, key);
+    c.close();
+    sched.executed = { tx: sched.scheduledTxId, hashscan: txIdToHashscan(sched.scheduledTxId) };
+    res.json({ executed: true, status, ...sched.executed });
+  } catch (e: any) {
+    res.json({
+      executed: false,
+      notYet: isNotYet(e),
+      error: isNotYet(e)
+        ? `NOT_YET — the key that signs this transfer does not exist until round ${sched.round}`
+        : e.message,
+    });
   }
 });
 

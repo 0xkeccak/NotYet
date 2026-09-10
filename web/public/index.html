@@ -187,6 +187,14 @@
   .ai .sparkle{font-size:15px}
   .ai .parsed{width:100%;font-size:13px;color:var(--gold);font-family:var(--mono);margin-top:2px}
 
+  /* scheduled transfer (HIP-423) panel */
+  .sched{border:1px dashed var(--line2);border-radius:12px;padding:14px 16px;margin-top:12px;background:var(--card)}
+  .sched .lbl{display:block;margin-bottom:2px}
+  .sched .ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:11px}
+  .sched .ctl .small{color:var(--dim)}
+  .sched input[type=number]{width:76px}
+  .sched .tag{font-family:var(--mono);font-size:10.5px;font-weight:500;padding:3px 9px;border-radius:999px;background:rgba(30,154,84,.13);color:var(--green);text-transform:uppercase;letter-spacing:.07em}
+
   /* example scenario picker */
   .scene-select{display:flex;align-items:center;gap:9px}
   select{background:var(--paper);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:9px 12px;font-family:var(--sans);font-size:14.5px;max-width:100%;cursor:pointer}
@@ -335,6 +343,25 @@
           <input class="txt" id="aiText" type="text" placeholder="…or describe your own — e.g. “$5 each day for 5 days”" />
           <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
           <div class="parsed" id="aiParsed" style="display:none"></div>
+        </div>
+
+        <div class="sched">
+          <div class="row" style="justify-content:space-between;align-items:flex-start">
+            <div><b class="lbl">Or: schedule an on-chain transfer</b>
+              <span class="small">Pick a time. A Hedera scheduled transaction (HIP-423) is posted <b>pending</b> — it executes at that time <b>without ever handing over the key</b>.</span></div>
+            <span class="tag">HIP-423</span>
+          </div>
+          <div class="ctl">
+            <span class="small">execute in</span>
+            <select id="schedWhen" aria-label="When to execute">
+              <option value="10">10 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option>
+            </select>
+            <span class="small">send</span>
+            <input id="schedAmt" type="number" value="0.02" step="0.01" min="0.01" max="0.1" aria-label="Amount in HBAR"/>
+            <span class="small">ℏ → merchant</span>
+            <button class="btn amber" id="schedCreate" style="padding:9px 16px">Schedule it</button>
+          </div>
+          <div id="schedOut" class="out" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -557,6 +584,50 @@ $("aiPlan").onclick=()=>{
   el.textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${assumed?" (assumed 3 — add “for N days” to set)":""}${capped?" (demo caps at 5)":""}. Now hit “Issue schedule”.`;
 };
 $("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click();});
+
+// ---- scheduled transfer (HIP-423, sign-on-unlock) ----
+let schedPoll=null;
+function renderSched(s){
+  const out=$("schedOut"); out.style.display="block";
+  if(s.error){out.innerHTML='<span class="err">'+s.error+'</span>';return;}
+  const acct=`<a class="small mono" href="${s.hashscanAccount}" target="_blank">${s.accountId}</a>`;
+  const schedLink=`<a class="small mono" href="${s.hashscanSchedule}" target="_blank">schedule ${s.scheduleId} ↗</a>`;
+  if(s.state==="executed"){
+    out.innerHTML=`<span class="c-green">✓ executed — ${s.amount} ℏ sent to the merchant on Hedera.</span>\nThe signature came from a key that did not exist when this transfer was scheduled.\n${schedLink}${s.executed?` · <a class="small" href="${s.executed.hashscan}" target="_blank">settlement ↗</a>`:""}`;
+    return;
+  }
+  if(s.state==="ready"){
+    out.innerHTML=`<span class="c-amber">round reached — the key now exists.</span> The pending transfer of ${s.amount} ℏ can be signed.\n${schedLink} · ${acct}\n<button class="btn amber" id="schedExec" style="margin-top:8px;padding:8px 16px">Execute now</button>`;
+    $("schedExec").onclick=schedExecute; return;
+  }
+  out.innerHTML=`<span class="c-amber">pending on Hedera — inert.</span> The ${s.amount} ℏ transfer is posted, but the key that must sign it <b>does not exist yet</b> (unlocks in ${s.secondsToUnlock}s).\n${schedLink} · ${acct}\n<button class="btn ghost" id="schedExec" style="margin-top:8px;padding:8px 16px">Try to execute early</button>`;
+  $("schedExec").onclick=schedExecute;
+}
+async function schedRefresh(){
+  const s=await api("/api/schedule/status");
+  if(s.none)return;
+  renderSched(s);
+  if(s.state==="executed"&&schedPoll){clearInterval(schedPoll);schedPoll=null;}
+}
+async function schedExecute(){
+  const b=$("schedExec"); if(b){b.disabled=true;b.textContent="signing…";}
+  const r=await api("/api/schedule/execute",{});
+  if(r.executed){await schedRefresh();}
+  else{$("schedOut").innerHTML='<span class="err">'+(r.error||"execution failed")+'</span>'+(r.notYet?"\nThat’s the point — come back when the round arrives and it signs itself in.":"");}
+}
+$("schedCreate").onclick=async()=>{
+  const btn=$("schedCreate");btn.disabled=true;btn.textContent="Scheduling…";
+  $("schedOut").style.display="block";$("schedOut").textContent="creating a funded account, timelocking its key, posting the pending scheduled transfer to Hedera…";
+  try{
+    const r=await api("/api/schedule",{seconds:Number($("schedWhen").value),amount:Number($("schedAmt").value)});
+    if(r.error)throw new Error(r.error);
+    renderSched({...r,state:"locked",executed:null});
+    if(schedPoll)clearInterval(schedPoll);
+    schedPoll=setInterval(schedRefresh,2000);
+  }catch(e){$("schedOut").innerHTML='<span class="err">'+e.message+'</span>';}
+  btn.disabled=false;btn.textContent="Schedule it";
+};
+schedRefresh(); // pick up an already-scheduled transfer on load
 
 // ---- example scenarios (pick one → it configures the demo) ----
 let demoCadence="week", demoPeriodSec=15;

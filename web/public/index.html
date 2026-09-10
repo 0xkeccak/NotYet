@@ -187,6 +187,15 @@
   .ai .sparkle{font-size:15px}
   .ai .parsed{width:100%;font-size:13px;color:var(--gold);font-family:var(--mono);margin-top:2px}
 
+  /* example scenario picker */
+  .scene{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+  .scene .row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  select{background:var(--paper);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:9px 12px;font-family:var(--sans);font-size:14.5px;max-width:100%;cursor:pointer}
+  select:focus{outline:none;border-color:var(--gold)}
+  .scene .story{font-size:14.5px;color:var(--ink2);background:var(--paper2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;line-height:1.55}
+  .scene .story b{color:var(--ink)}
+  .scene .actor{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:6px}
+
   /* settlements */
   .settle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px dashed var(--line)}
   .settle:last-child{border-bottom:0}
@@ -329,9 +338,14 @@
         <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
       </div>
       <div class="body">
+        <div class="scene">
+          <div class="row2"><span class="small">Example:</span>
+            <select id="scenario" aria-label="Pick an example scenario"></select></div>
+          <div class="story" id="scenarioStory"></div>
+        </div>
         <div class="ai">
           <span class="sparkle">✦</span>
-          <input class="txt" id="aiText" type="text" placeholder="Describe a budget in plain English — e.g. “$5 each day for 5 days”" />
+          <input class="txt" id="aiText" type="text" placeholder="…or describe your own in plain English — e.g. “$5 each day for 5 days”" />
           <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
           <div class="parsed" id="aiParsed" style="display:none"></div>
         </div>
@@ -477,8 +491,8 @@ $("incidents").innerHTML=INC.map(i=>`<div class="card inc"><div class="row" styl
 $("issue").onclick=async()=>{
   $("issue").disabled=true;$("issue").textContent="Issuing…";
   $("issueOut").style.display="block";$("issueOut").textContent="creating period accounts, funding, timelocking, posting to HCS…";
-  try{const r=await api("/api/issue",{count:Number($("count").value)});if(r.error)throw new Error(r.error);
-    $("issueOut").textContent="HCS topic "+r.topicId+" — "+r.count+" periods locked\n"+r.periods.map(p=>`  period ${p.index}: account ${p.accountId}, round ${p.round}`).join("\n");
+  try{const r=await api("/api/issue",{count:Number($("count").value),periodSec:demoPeriodSec});if(r.error)throw new Error(r.error);
+    $("issueOut").textContent="HCS topic "+r.topicId+" — "+r.count+" "+demoCadence+"s locked\n"+r.periods.map(p=>`  ${cadTitle()} ${p.index+1}: account ${p.accountId}, round ${p.round}`).join("\n");
   }catch(e){$("issueOut").innerHTML='<span class="err">'+e.message+'</span>';}
   $("issue").disabled=false;$("issue").textContent="Issue schedule";
 };
@@ -494,7 +508,7 @@ async function refresh(){
     if(p.state==="paid")right=`<a class="small" href="${p.paid.hashscan}" target="_blank">settlement ↗</a>`;
     else if(p.state==="ready")right=`<button class="btn amber" data-pay="${p.index}">Unlock &amp; pay</button>`;
     else right=`<button class="btn ghost" data-pay="${p.index}">Try early</button> <span class="small">unlocks in ${p.secondsToUnlock}s</span>`;
-    return `<div class="period ${cls}"><div class="st"><div>${badge} &nbsp; period ${p.index} &nbsp; ${acct} <span class="small">· round ${p.round}</span></div>
+    return `<div class="period ${cls}"><div class="st"><div>${badge} &nbsp; ${cadTitle()} ${p.index+1} &nbsp; ${acct} <span class="small">· round ${p.round}</span></div>
       <div class="small err" id="msg${p.index}"></div></div><div class="row">${right}</div></div>`;
   }).join("");
   document.querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>pay(Number(b.dataset.pay)));
@@ -540,6 +554,31 @@ $("aiPlan").onclick=()=>{
   el.textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${assumed?" (assumed 3 — add “for N days” to set)":""}${capped?" (demo caps at 5)":""}. Now hit “Issue schedule”.`;
 };
 $("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click();});
+
+// ---- example scenarios (pick one → it configures the demo) ----
+let demoCadence="week", demoPeriodSec=15;
+const SCENARIOS=[
+ {label:"You → AI assistant · weekly subscription", actor:"You → AI assistant",
+  budget:"$5 each week for 4 weeks", count:4, cadence:"week", periodSec:15,
+  story:"Your assistant pays $5/week for a data subscription. You sign the whole month <b>once</b> on your Ledger and walk away — you never hand it your wallet. Hacked this week? It can touch <b>this week's $5 only</b> — next week's key doesn't exist yet."},
+ {label:"DAO / fund → trading bot · daily budget", actor:"DAO / fund → trading bot",
+  budget:"$5 each day for 5 days", count:5, cadence:"day", periodSec:12,
+  story:"A DAO funds a trading bot with a <b>daily allowance it can't front-run</b>. Compromised on day 3 → it loses one day, not the treasury."},
+ {label:"Company → procurement agent · monthly", actor:"Finance → procurement agent",
+  budget:"one payment per month for 3 months", count:3, cadence:"month", periodSec:15,
+  story:"Finance <b>pre-signs the quarter</b> on a Ledger and leaves. No standing key sits on a server for anyone to steal or subpoena — each month's authority appears on schedule."},
+ {label:"Research fleet → paid APIs · per shift", actor:"Research fleet → paid APIs",
+  budget:"one key per shift, 5 shifts", count:5, cadence:"shift", periodSec:12,
+  story:"Each shift gets its own x402 key that <b>dies at shift end</b>. A leaked key is worthless afterwards, and every call is logged to HCS for audit."},
+];
+$("scenario").innerHTML=SCENARIOS.map((s,i)=>`<option value="${i}">${s.label}</option>`).join("");
+function applyScenario(i){const s=SCENARIOS[i];
+  $("scenarioStory").innerHTML=`<span class="actor">${s.actor}</span>${s.story}`;
+  $("count").value=s.count; $("aiText").value=s.budget; $("aiParsed").style.display="none";
+  demoCadence=s.cadence; demoPeriodSec=s.periodSec;}
+$("scenario").onchange=()=>applyScenario(Number($("scenario").value));
+applyScenario(0);
+const cadTitle=()=>demoCadence.charAt(0).toUpperCase()+demoCadence.slice(1);
 
 // ---- recent settlements (real, from the merchant account on Hedera) ----
 function timeAgo(ms){const s=Math.max(0,(Date.now()-ms)/1000);

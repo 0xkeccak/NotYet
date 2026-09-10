@@ -42,7 +42,7 @@ interface PeriodState {
   paid?: { tx: string; hashscan?: string; data: unknown };
 }
 const state: { topicId?: string; periodSec: number; masterView?: Buffer; periods: PeriodState[] } = {
-  periodSec: 90,
+  periodSec: 15, // short by default so the whole cycle plays in under a minute (demo/video)
   periods: [],
 };
 
@@ -60,6 +60,7 @@ app.post("/api/issue", async (req: Request, res: Response) => {
   lastIssueMs = Date.now();
   try {
     const count = Math.min(Number(req.body?.count ?? 3), 5);
+    state.periodSec = Math.max(8, Math.min(120, Number(req.body?.periodSec ?? 15)));
     const c = client();
     const topicId = await createTopic(c, "notyet-dash");
     const master = newMasterViewSecret();

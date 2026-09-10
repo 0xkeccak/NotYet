@@ -28,7 +28,6 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@ensdomains/ensjs": "^4.3.1",
     "@ledgerhq/device-management-kit": "^1.9.0",
     "@ledgerhq/device-signer-kit-ethereum": "^1.18.0",
     "@ledgerhq/device-transport-kit-speculos": "^1.2.1",

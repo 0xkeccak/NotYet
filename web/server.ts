@@ -12,10 +12,12 @@ import express, { type Request, type Response } from "express";
 import { Client, PrivateKey, AccountId } from "@hiero-ledger/sdk";
 import { issuePeriod } from "../issuer/lock.js";
 import { createTopic, submitMessage, readMessages } from "../sdk/hcs.js";
-import { decryptCiphertext, isNotYet, roundForTime, roundUnlockMs } from "../sdk/tlock.js";
+import { decryptCiphertext, encryptToRound, isNotYet, roundForTime, roundUnlockMs } from "../sdk/tlock.js";
 import { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
 import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
 import { payX402 } from "../sdk/pay.js";
+import { commitPeriod, withdraw, signWithdraw, evmAddressOf, HEDERA_TESTNET_CHAINID } from "../sdk/vault.js";
+import { generatePrivateKey } from "viem/accounts";
 import { createScheduledTransfer, signScheduled, scheduleStatus, txIdToHashscan } from "../sdk/scheduled.js";
 import { mountX402 } from "../service/server.js";
 import type { Receipt } from "../sdk/types.js";
@@ -31,18 +33,33 @@ const payerKey = process.env.HEDERA_PAYER_KEY!;
 let lastIssueMs = 0;
 const ISSUE_COOLDOWN_MS = Number(process.env.ISSUE_COOLDOWN_MS ?? 60_000);
 
+// Vault-backed money path (the shipped architecture): if a persistent PeriodVault + agent
+// account are configured, /api/issue commits each period's key to the vault and /api/pay
+// releases funds via a signed on-chain withdraw, then pays x402 from the agent account —
+// "one contract, not N wallets". Falls back to per-period accounts if these are unset.
+const VAULT_ID = process.env.DEMO_VAULT_ID;
+const VAULT_EVM = process.env.DEMO_VAULT_EVM ?? "";
+const AGENT_ID = process.env.DEMO_AGENT_ID ?? "";
+const AGENT_KEY = process.env.DEMO_AGENT_KEY ?? "";
+const VAULT_MODE = Boolean(VAULT_ID && VAULT_EVM && AGENT_ID && AGENT_KEY);
+const WITHDRAW_TINYBAR = 120_000n; // released per pay (covers the 100000-tinybar x402 price)
+const PERIOD_BUDGET = 1_000_000n; // per-period on-chain cap
+const PERIOD_PERTXMAX = 500_000n; // above this a withdrawal needs the Ledger approver co-sign
+
 const client = () =>
   Client.forTestnet().setOperator(AccountId.fromString(payerId), PrivateKey.fromStringECDSA(payerKey.replace(/^0x/, "")));
 
 interface PeriodState {
-  index: number;
+  index: number; // 0-based UI index
+  vaultIndex?: number; // on-chain period key in the vault (vault mode)
   round: number;
   unlockMs: number;
-  accountId: string;
+  accountId?: string; // per-period account (fallback mode only)
   ciphertext: string;
+  spent: bigint; // tinybar withdrawn so far this period (vault mode)
   paid?: { tx: string; hashscan?: string; data: unknown };
 }
-const state: { topicId?: string; periodSec: number; masterView?: Buffer; periods: PeriodState[] } = {
+const state: { topicId?: string; vaultId?: string; periodSec: number; masterView?: Buffer; periods: PeriodState[] } = {
   periodSec: 15, // short by default so the whole cycle plays in under a minute (demo/video)
   periods: [],
 };
@@ -80,20 +97,39 @@ app.post("/api/issue", async (req: Request, res: Response) => {
     const topicId = await createTopic(c, "notyet-dash");
     const master = newMasterViewSecret();
     const now = Date.now();
+    // monotonic base so committed indices never collide across issues on the persistent vault
+    const base = Math.floor(now / 1000);
     const periods: PeriodState[] = [];
     for (let i = 0; i < count; i++) {
       // first period unlocks in ~8s, each next one staggers by the cadence (so a short
       // demo cadence like 8s plays out as 8s / 16s / 24s — clean for the video)
       const round = roundForTime(now + 8_000 + i * state.periodSec * 1000);
-      const p = await issuePeriod(c, { index: i, round, budgetTinybars: "3000000" });
-      await submitMessage(c, topicId, JSON.stringify({ index: i, round, accountId: p.accountId, ciphertext: p.ciphertext }));
-      periods.push({ index: i, round, unlockMs: roundUnlockMs(round), accountId: p.accountId, ciphertext: p.ciphertext });
+      const unlockMs = roundUnlockMs(round);
+      if (VAULT_MODE) {
+        // no per-period account: generate the key, commit its ADDRESS + policy to the vault,
+        // timelock the key, post the ciphertext to HCS. The vault is the budget authority.
+        const k = generatePrivateKey(); // 0x-prefixed ECDSA key
+        const ciphertext = await encryptToRound(k.slice(2), round);
+        const vaultIndex = base + i;
+        const start = Math.floor(unlockMs / 1000) - 5; // window opens ~at the round
+        await commitPeriod(c, VAULT_ID!, {
+          i: vaultIndex, signerEvm: evmAddressOf(k), budgetTinybar: PERIOD_BUDGET,
+          start, end: start + 86_400, perTxMaxTinybar: PERIOD_PERTXMAX,
+        });
+        await submitMessage(c, topicId, JSON.stringify({ index: i, vaultIndex, round, ciphertext }));
+        periods.push({ index: i, vaultIndex, round, unlockMs, ciphertext, spent: 0n });
+      } else {
+        const p = await issuePeriod(c, { index: i, round, budgetTinybars: "3000000" });
+        await submitMessage(c, topicId, JSON.stringify({ index: i, round, accountId: p.accountId, ciphertext: p.ciphertext }));
+        periods.push({ index: i, round, unlockMs, accountId: p.accountId, ciphertext: p.ciphertext, spent: 0n });
+      }
     }
     c.close();
     state.topicId = topicId;
+    state.vaultId = VAULT_MODE ? VAULT_ID : undefined;
     state.masterView = master;
     state.periods = periods;
-    res.json({ topicId, count, periods: periods.map(({ ciphertext, ...p }) => p) });
+    res.json({ topicId, vaultId: state.vaultId, mode: VAULT_MODE ? "vault" : "accounts", count, periods: periods.map(({ ciphertext, spent, ...p }) => p) });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -103,15 +139,24 @@ app.get("/api/status", (_req: Request, res: Response) => {
   const now = Date.now();
   res.json({
     topicId: state.topicId,
-    periods: state.periods.map((p) => ({
-      index: p.index,
-      round: p.round,
-      accountId: p.accountId,
-      hashscanAccount: `https://hashscan.io/testnet/account/${p.accountId}`,
-      state: p.paid ? "paid" : now >= p.unlockMs ? "ready" : "locked",
-      secondsToUnlock: Math.max(0, Math.round((p.unlockMs - now) / 1000)),
-      paid: p.paid,
-    })),
+    vaultId: state.vaultId,
+    mode: state.vaultId ? "vault" : "accounts",
+    periods: state.periods.map((p) => {
+      // in vault mode the on-chain artifact is the vault contract + committed period index
+      const label = state.vaultId ? `${state.vaultId} · #${p.vaultIndex}` : p.accountId;
+      const link = state.vaultId
+        ? `https://hashscan.io/testnet/contract/${state.vaultId}`
+        : `https://hashscan.io/testnet/account/${p.accountId}`;
+      return {
+        index: p.index,
+        round: p.round,
+        accountId: label,
+        hashscanAccount: link,
+        state: p.paid ? "paid" : now >= p.unlockMs ? "ready" : "locked",
+        secondsToUnlock: Math.max(0, Math.round((p.unlockMs - now) / 1000)),
+        paid: p.paid,
+      };
+    }),
   });
 });
 
@@ -119,14 +164,33 @@ app.post("/api/pay", async (req: Request, res: Response) => {
   const p = state.periods.find((x) => x.index === Number(req.body?.index));
   if (!p) return res.status(404).json({ error: "no such period" });
   try {
+    // decrypt the period key — throws NOT_YET before its drand round (the money shot)
     const key = (await decryptCiphertext(p.ciphertext)).toString("utf8");
-    const result = await payX402(SERVICE_URL, { accountId: p.accountId, privateKey: key });
+    let withdrawHashscan: string | undefined;
+    let payer: { accountId: string; privateKey: string };
+    if (VAULT_MODE) {
+      // sign a withdraw with the unlocked key; the vault enforces window + ecrecover + budget
+      // (+ perTxMax escalation) on-chain, releasing funds into the fixed agent account
+      const c = client();
+      const sig = await signWithdraw(key, {
+        contractEvm: VAULT_EVM, chainId: HEDERA_TESTNET_CHAINID,
+        i: p.vaultIndex!, amtTinybar: WITHDRAW_TINYBAR, spentTinybar: p.spent, tag: "agent",
+      });
+      await withdraw(c, VAULT_ID!, { i: p.vaultIndex!, amtTinybar: WITHDRAW_TINYBAR, agent: sig });
+      c.close();
+      p.spent += WITHDRAW_TINYBAR;
+      withdrawHashscan = `https://hashscan.io/testnet/contract/${VAULT_ID}`;
+      payer = { accountId: AGENT_ID, privateKey: AGENT_KEY }; // pays x402 from the released funds
+    } else {
+      payer = { accountId: p.accountId!, privateKey: key }; // fallback: pay straight from the period account
+    }
+    const result = await payX402(SERVICE_URL, payer);
     if (result.paid && state.topicId && state.masterView) {
       const receipt: Receipt = { periodIndex: p.index, service: "price", amount: "100000", timestampMs: Date.now(), resultHash: "demo" };
       await submitMessage(client(), state.topicId, encryptReceipt(receipt, deriveViewKey(state.masterView, p.index)));
       p.paid = { tx: result.settlement!, hashscan: result.hashscan, data: result.data };
     }
-    res.json({ paid: result.paid, ...p.paid });
+    res.json({ paid: result.paid, withdraw: withdrawHashscan, ...p.paid });
   } catch (e: any) {
     res.json({ paid: false, notYet: isNotYet(e), error: isNotYet(e) ? `NOT_YET — key for period ${p.index} does not exist until round ${p.round}` : e.message });
   }

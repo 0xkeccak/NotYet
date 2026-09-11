@@ -2,8 +2,8 @@
  * PeriodVault client — deploy the contract, commit periods, deposit, and drive
  * timelock-gated withdrawals on Hedera testnet via @hiero-ledger/sdk (no ethers).
  *
- * Units: the contract works in weibar (the EVM value unit on Hedera; 1 tinybar = 1e10
- * weibar). Budgets / amounts / perTxMax are weibar bigints here; deposits are tinybars.
+ * Units: amounts are TINYBAR (1 HBAR = 1e8). Empirically Hederas .call{value} here settles
+ * in tinybar, so budgets / amounts / perTxMax / spent are all tinybar bigints.
  */
 import {
   Client,
@@ -15,7 +15,7 @@ import {
 } from "@hiero-ledger/sdk";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { keccak256, encodePacked, hexToBytes } from "viem";
+import { keccak256, encodePacked, hexToBytes, encodeAbiParameters } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 /** EVM address of a raw ECDSA private key (hex, with or without 0x). */
@@ -24,7 +24,6 @@ export function evmAddressOf(kHex: string): `0x${string}` {
 }
 
 export const HEDERA_TESTNET_CHAINID = 296;
-export const TINYBAR_TO_WEIBAR = 10_000_000_000n;
 
 const artifactPath = fileURLToPath(new URL("../contracts/PeriodVault.json", import.meta.url));
 export const VAULT_ARTIFACT = JSON.parse(readFileSync(artifactPath, "utf8")) as { abi: unknown[]; bytecode: string };
@@ -40,13 +39,17 @@ export async function deployVault(
   client: Client,
   opts: { agentEvm: string; approverEvm: string; initialTinybar: number },
 ): Promise<{ contractId: string; contractEvm: string }> {
-  const params = new ContractFunctionParameters().addAddress(strip0x(opts.agentEvm)).addAddress(strip0x(opts.approverEvm));
   // Inline bytecode (4101 bytes fits the tx size limit) — avoids the ~2 HBAR FileCreate that
-  // ContractCreateFlow charges for uploading the bytecode to a Hedera file first.
-  const bytecode = Uint8Array.from(Buffer.from(VAULT_ARTIFACT.bytecode, "hex"));
+  // ContractCreateFlow charges for uploading the bytecode to a Hedera file first. With inline
+  // setBytecode the SDK does NOT append setConstructorParameters, so we ABI-encode the
+  // (agent, approver) args and concatenate them onto the creation bytecode ourselves.
+  const args = encodeAbiParameters(
+    [{ type: "address" }, { type: "address" }],
+    [with0x(opts.agentEvm), with0x(opts.approverEvm)],
+  ).slice(2);
+  const bytecode = Uint8Array.from(Buffer.from(VAULT_ARTIFACT.bytecode + args, "hex"));
   const resp = await new ContractCreateTransaction()
     .setBytecode(bytecode)
-    .setConstructorParameters(params)
     .setGas(1_200_000)
     .setInitialBalance(Hbar.fromTinybars(opts.initialTinybar))
     .execute(client);
@@ -59,15 +62,15 @@ export async function deployVault(
 export async function commitPeriod(
   client: Client,
   contractId: string,
-  p: { i: number; signerEvm: string; budgetWei: bigint; start: number; end: number; perTxMaxWei: bigint },
+  p: { i: number; signerEvm: string; budgetTinybar: bigint; start: number; end: number; perTxMaxTinybar: bigint },
 ): Promise<string> {
   const params = new ContractFunctionParameters()
     .addUint256(u256(p.i))
     .addAddress(strip0x(p.signerEvm))
-    .addUint256(u256(p.budgetWei))
+    .addUint256(u256(p.budgetTinybar))
     .addUint64(p.start)
     .addUint64(p.end)
-    .addUint256(u256(p.perTxMaxWei));
+    .addUint256(u256(p.perTxMaxTinybar));
   const resp = await new ContractExecuteTransaction()
     .setContractId(contractId)
     .setGas(250_000)
@@ -104,12 +107,12 @@ const ZERO_SIG: WithdrawSig = { v: 27, r: ZERO32, s: ZERO32 };
  */
 export async function signWithdraw(
   kHex: string,
-  d: { contractEvm: string; chainId: number; i: number; amtWei: bigint; spentWei: bigint; tag: "agent" | "approve" },
+  d: { contractEvm: string; chainId: number; i: number; amtTinybar: bigint; spentTinybar: bigint; tag: "agent" | "approve" },
 ): Promise<WithdrawSig> {
   const inner = keccak256(
     encodePacked(
       ["address", "uint256", "uint256", "uint256", "uint256", "string"],
-      [with0x(d.contractEvm), BigInt(d.chainId), BigInt(d.i), d.amtWei, d.spentWei, d.tag],
+      [with0x(d.contractEvm), BigInt(d.chainId), BigInt(d.i), d.amtTinybar, d.spentTinybar, d.tag],
     ),
   );
   const sigHex = await privateKeyToAccount(with0x(kHex)).signMessage({ message: { raw: inner } });
@@ -120,17 +123,17 @@ export async function signWithdraw(
   };
 }
 
-/** Withdraw `amtWei` for period `i`. Pass `approver` only when amt > perTxMax. */
+/** Withdraw `amtTinybar` for period `i`. Pass `approver` only when amt > perTxMax. */
 export async function withdraw(
   client: Client,
   contractId: string,
-  w: { i: number; amtWei: bigint; agent: WithdrawSig; approver?: WithdrawSig },
+  w: { i: number; amtTinybar: bigint; agent: WithdrawSig; approver?: WithdrawSig },
 ): Promise<string> {
   const a = w.agent;
   const o = w.approver ?? ZERO_SIG;
   const params = new ContractFunctionParameters()
     .addUint256(u256(w.i))
-    .addUint256(u256(w.amtWei))
+    .addUint256(u256(w.amtTinybar))
     .addUint8(a.v)
     .addBytes32(hexToBytes(a.r))
     .addBytes32(hexToBytes(a.s))

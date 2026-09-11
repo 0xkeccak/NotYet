@@ -288,16 +288,26 @@
 <section id="how" class="alt">
   <div class="wrap">
     <p class="eyebrow">How it works</p>
-    <h2 class="serif">Encrypt each key to a moment in time.</h2>
-    <p class="lead" style="margin-top:16px">Each period's spend key is timelock-encrypted (tlock) to a future round of the drand beacon — a threshold network publishing a signature every 3 seconds. That signature <i>is</i> the decryption key, and it does not exist until the round happens. The owner pre-issues the whole schedule, hands the agent every <i>locked</i> key, and walks away.</p>
+    <h2 class="serif">One vault. Keys that unlock themselves on time.</h2>
+    <p class="lead" style="margin-top:16px">The owner deposits into a single <b>PeriodVault</b> contract on Hedera and commits a schedule: for each period the vault stores the spend key's <i>address</i>, a budget, a <span class="mono">[start,&nbsp;end]</span> window, and a per-transaction ceiling. Each spend key is timelock-encrypted (tlock) to a future round of the drand beacon — a threshold network publishing a signature every 3 seconds. That signature <i>is</i> the decryption key, and it does not exist until the round happens. The owner walks away holding nothing usable; the agent holds only ciphertexts. No standing wallets, no key server.</p>
     <div class="grid g2 pillars" style="margin-top:32px">
-      <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:10px">The lock itself</h3><p>Keys are born on schedule. Decrypt early and it throws <span class="mono">NOT_YET</span> — for anyone, including the owner.</p></div></div>
-      <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device; the owner approves the whole schedule with one on-device confirmation via the Ledger <b>Device Management Kit</b>. The agent never holds it.</p></div></div>
-      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera</span><h3 style="margin-top:10px">Scheduled payments · audit · trust</h3><p>This is a <b>scheduled agentic payment</b>: one funded account per period (a ledger-enforced cap), settled as a real x402 pay-per-call via Blocky402. An HCS log carries the ciphertexts, the receipts, <b>and the signed schedule the agent verifies</b> — it <b>refuses</b> if the signature doesn't match the trusted issuer.</p></div></div>
-      <div class="card"><span class="ic">🔗</span><div><span class="badge b-blue">MCP · Bazantic</span><h3 style="margin-top:10px">Any agent can call it</h3><p>The whole capability is exposed as MCP tools, so other agents pay through Notyet — agent-to-agent payments that inherit the timelock's blast-radius bound of one period.</p></div></div>
+      <div class="card"><span class="ic">🔒</span><div><span class="badge b-amber">drand / tlock</span><h3 style="margin-top:10px">The lock itself</h3><p>Keys are born on schedule. Try to unlock a period early and it throws <span class="mono">NOT_YET</span> — the decryption key hasn't been published, so it exists for no one, the owner included.</p></div></div>
+      <div class="card"><span class="ic">🔑</span><div><span class="badge b-violet">Ledger</span><h3 style="margin-top:10px">Root of authority</h3><p>The issuer key lives on the device: the owner approves the schedule and the deposit with one on-device confirmation via the Ledger <b>Device Management Kit</b>, and <b>co-signs any withdrawal above the per-tx ceiling</b> — the explicit-approval boundary. The agent never holds it.</p></div></div>
+      <div class="card"><span class="ic">⚡</span><div><span class="badge b-green">Hedera · PeriodVault</span><h3 style="margin-top:10px">One contract, not N wallets</h3><p>To spend, the agent calls <span class="mono">withdraw(i, amt)</span> with the unlocked key. The contract enforces, <b>on-chain</b>: the <b>window</b> (a key is useless before <i>and</i> after its period), <b>identity</b> (<span class="mono">ecrecover</span> must match the committed key), and the <b>budget</b> cap. Funds release → a real x402 pay-per-call settles via Blocky402; encrypted receipts land on HCS.</p></div></div>
+      <div class="card"><span class="ic">🔗</span><div><span class="badge b-blue">MCP · Bazantic</span><h3 style="margin-top:10px">Any agent can call it</h3><p>The whole capability is exposed as MCP tools, so other agents pay through Notyet — agent-to-agent payments that inherit the one-period blast-radius bound.</p></div></div>
     </div>
-    <p class="small" style="margin-top:22px">One chain, no bridge: Hedera holds the money, the audit log, <i>and</i> the signed rules the agent verifies — there's nothing to bridge. The trust anchor is just the issuer address the agent is told to trust.</p>
-    <p class="lead" style="margin-top:26px"><b>Why not Hedera's native scheduled transactions?</b> A scheduled transaction has to <i>exist</i> ahead of time — it's created, then held pending until it's signed or its time comes. That means the authority to spend already exists early; something is holding a live, future-dated transaction. Notyet schedules the opposite way: it locks the <b>key</b>, not the transaction. Until the round arrives there is nothing to hold, nothing to trigger early, and nothing to leak — the payment can't be built at all, because its signing key doesn't exist yet.</p>
+
+    <div class="flow" style="margin-top:30px">
+      <div class="step"><div class="n">STEP 1</div><div class="t">Deposit &amp; commit</div><div class="d">Owner funds the vault (Ledger-approved) and commits each period: key address, budget, window, ceiling.</div></div>
+      <div class="step"><div class="n">STEP 2</div><div class="t">Timelock</div><div class="d">Each spend key is sealed to its drand round and wiped. The agent holds only ciphertexts.</div></div>
+      <div class="step hot"><div class="n">STEP 3</div><div class="t">NOT_YET</div><div class="d">Try a future period early → the key can't be decrypted → the vault won't release.</div></div>
+      <div class="step"><div class="n">STEP 4</div><div class="t">Unlock</div><div class="d">On its round, drand's signature decrypts the key.</div></div>
+      <div class="step"><div class="n">STEP 5</div><div class="t">Withdraw → x402</div><div class="d">Signed withdraw passes window + budget + ceiling on-chain; funds pay the x402 service.</div></div>
+      <div class="step"><div class="n">STEP 6</div><div class="t">Audit / reclaim</div><div class="d">Scoped view key opens one period's receipts. Owner reclaims unspent funds — only after a period ends.</div></div>
+    </div>
+
+    <p class="small" style="margin-top:22px">One chain, no bridge: the vault holds the money, the policy the agent must satisfy, <i>and</i> (via HCS) the audit log — there's nothing to bridge. A compromised agent can still spend at most one period's budget, and never a period whose window is closed.</p>
+    <p class="lead" style="margin-top:26px"><b>Why not Hedera's native scheduled transactions?</b> A scheduled transaction has to <i>exist</i> ahead of time — created, then held pending until it's signed or its time comes. The authority to spend already exists early; something is holding a live, future-dated transaction. Notyet schedules the opposite way: it locks the <b>key</b>, not the transaction. Until the round arrives there is nothing to hold, nothing to trigger early, and nothing to leak — the withdrawal can't even be signed, because its key doesn't exist yet.</p>
   </div>
 </section>
 
@@ -330,7 +340,7 @@
   <div class="wrap">
     <p class="eyebrow">Live demo · Hedera testnet</p>
     <h2 class="serif">Issue a schedule. Watch a key refuse to exist.</h2>
-    <p class="lead" style="margin-top:16px">This runs for real: each period gets a funded Hedera account and a key timelocked to a drand round. Try a locked period → <span class="mono">NOT_YET</span>. When its round arrives → unlock, pay a real x402 service, settle on HashScan.</p>
+    <p class="lead" style="margin-top:16px">This runs for real against Hedera testnet — the <b>timelock in action</b>: issue a schedule, try a locked period → <span class="mono">NOT_YET</span>, then on its round unlock and pay a live x402 service, settled on HashScan. The same window + budget policy is enforced on-chain by the <b>PeriodVault</b> contract — see <a href="#proof">Proof</a>.</p>
 
     <div class="card scene-card" style="margin-top:26px">
       <div class="head"><div><b>Pick a scenario</b> <span class="small">— a real budget an agent could run</span></div>

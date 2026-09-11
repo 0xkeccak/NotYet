@@ -98,29 +98,48 @@ export interface WithdrawSig {
 const ZERO32 = ("0x" + "00".repeat(32)) as `0x${string}`;
 const ZERO_SIG: WithdrawSig = { v: 27, r: ZERO32, s: ZERO32 };
 
+export interface WithdrawDigestInput {
+  contractEvm: string;
+  chainId: number;
+  i: number;
+  amtTinybar: bigint;
+  spentTinybar: bigint;
+  tag: "agent" | "approve";
+}
+
 /**
- * Sign a withdrawal digest with a period key `k` (raw hex). `tag` is "agent" for the
- * period key, "approve" for the approver co-sign. Mirrors the contract's digest():
- * keccak256(abi.encodePacked(contract, chainid, i, amt, spent, tag)) then EIP-191. viem's
- * signMessage({raw}) applies the exact "\x19Ethereum Signed Message:\n32" prefix the
- * contract re-derives before ecrecover.
+ * The 32-byte digest the vault re-derives inside withdraw() before ecrecover, as a hex
+ * string: keccak256(abi.encodePacked(contract, chainid, i, amt, spent, tag)). Sign it as
+ * a raw EIP-191 personal message (viem `signMessage({raw})`, DMK `signMessage(bytes)`) so
+ * the "\x19Ethereum Signed Message:\n32" prefix matches on both ends. `tag` is "agent"
+ * for the period key, "approve" for the Ledger approver co-sign.
  */
-export async function signWithdraw(
-  kHex: string,
-  d: { contractEvm: string; chainId: number; i: number; amtTinybar: bigint; spentTinybar: bigint; tag: "agent" | "approve" },
-): Promise<WithdrawSig> {
-  const inner = keccak256(
+export function withdrawDigest(d: WithdrawDigestInput): `0x${string}` {
+  return keccak256(
     encodePacked(
       ["address", "uint256", "uint256", "uint256", "uint256", "string"],
       [with0x(d.contractEvm), BigInt(d.chainId), BigInt(d.i), d.amtTinybar, d.spentTinybar, d.tag],
     ),
   );
-  const sigHex = await privateKeyToAccount(with0x(kHex)).signMessage({ message: { raw: inner } });
+}
+
+/** Split a 65-byte hex signature into the contract's (v, r, s) form. */
+export function sigToVRS(sigHex: string): WithdrawSig {
+  const h = with0x(sigHex).slice(2);
   return {
-    v: parseInt(sigHex.slice(130, 132), 16),
-    r: with0x(sigHex.slice(2, 66)),
-    s: with0x(sigHex.slice(66, 130)),
+    v: parseInt(h.slice(128, 130), 16),
+    r: with0x(h.slice(0, 64)),
+    s: with0x(h.slice(64, 128)),
   };
+}
+
+/**
+ * Sign a withdrawal digest with a period key `k` (raw hex). See {@link withdrawDigest}.
+ */
+export async function signWithdraw(kHex: string, d: WithdrawDigestInput): Promise<WithdrawSig> {
+  const inner = withdrawDigest(d);
+  const sigHex = await privateKeyToAccount(with0x(kHex)).signMessage({ message: { raw: inner } });
+  return sigToVRS(sigHex);
 }
 
 /** Withdraw `amtTinybar` for period `i`. Pass `approver` only when amt > perTxMax. */

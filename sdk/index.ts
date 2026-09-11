@@ -22,8 +22,21 @@ export {
 export { payX402, type SpendCredentials, type PayResult } from "./pay.js";
 export { createTopic, submitMessage, readMessages, type TopicMessage } from "./hcs.js";
 
-// Scoped-audit receipts + schedule signing
-export { encryptReceipt, decryptReceipt } from "./receipts.js";
+// PeriodVault — the on-chain treasury + timelock gate (deploy · commit · deposit · withdraw)
+export {
+  deployVault,
+  commitPeriod,
+  deposit,
+  signWithdraw,
+  withdraw,
+  reclaim,
+  evmAddressOf,
+  HEDERA_TESTNET_CHAINID,
+  type WithdrawSig,
+} from "./vault.js";
+
+// Scoped-audit receipts (symmetric + device-born sealed) + schedule signing
+export { encryptReceipt, decryptReceipt, sealReceipt, openSealedReceipt } from "./receipts.js";
 export { signSchedule, verifySchedule, issuerAddress } from "./sign.js";
 
 // Shared types
@@ -34,7 +47,13 @@ export { buildSchedule, currentPeriodIndex, canonicalJSON } from "../issuer/sche
 export { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
 export { issuePeriod, type IssuedPeriod } from "../issuer/lock.js";
 export { publishSchedule, SCHEDULE_MSG_TYPE } from "../issuer/publish.js";
-export { signScheduleWithLedger, ledgerIssuerAddress, type LedgerOptions } from "../issuer/ledger.js";
+export {
+  signScheduleWithLedger,
+  ledgerIssuerAddress,
+  ledgerApproveWithdraw,
+  ledgerViewKeyPair,
+  type LedgerOptions,
+} from "../issuer/ledger.js";
 
 // Agent building blocks
 export { resolveSchedule, UntrustedScheduleError } from "../agent/resolve.js";

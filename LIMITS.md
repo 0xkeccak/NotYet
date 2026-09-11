@@ -7,7 +7,9 @@
 - No *persistent* server holds future keys; after issuance, no party can be coerced into
   releasing a key early.
 - Loss from a compromised agent is bounded by one period's account balance.
-- Audit disclosure is scoped per period — one view key reveals one period, nothing else.
+- Audit disclosure is scoped per period — one view key reveals one period, nothing else. In
+  the device-born path (`npm run demo`) that view secret is reconstructed from a Ledger tap
+  and **never touches disk**; the agent seals receipts to the public half and cannot reopen them.
 - With **PeriodVault**, a period's key is useless **outside its [start, end] window** and
   **beyond its budget** — both enforced on-chain by the contract, not by convention.
 
@@ -29,6 +31,9 @@
 - *(Resolved 2026-09-11)* The PeriodVault gate is **green live on Hedera testnet** — deploy
   → deposit → in-window withdraw settles, and future-window / over-budget / over-`perTxMax`
   (without the approver) all revert on-chain. A withdrawal moved real HBAR to the recipient.
+  The over-`perTxMax` co-sign is proven with the **real Ledger device** as approver, not a
+  software stand-in: `npm run gate:vault:ledger` (3/3) shows the over-cap withdrawal revert
+  with the agent signature alone and settle only with the on-device co-signature.
 - **Novel cryptography.** tlock is drand's; the application to agent spend authority is
   ours. Not quantum-resistant (BLS/IBE, as drand states).
 - **A physical Ledger device in this build.** The issuer key runs on **Speculos**,

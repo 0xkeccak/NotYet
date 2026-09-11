@@ -13,6 +13,8 @@ export interface Period {
   vaultContractId?: string;
   /** On-chain period index committed in the vault. */
   vaultIndex?: number;
+  /** Base64 X25519 view public key the agent seals this period's receipt to (device-born; see issuer/ledger.ledgerViewKeyPair). */
+  viewPubKey?: string;
   /** Budget for this period, in the asset's smallest units. */
   budget: string;
 }

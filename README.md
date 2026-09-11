@@ -39,7 +39,7 @@ period's** balance — the rest of the keys still don't exist.
 | Layer | Role | Proven by |
 |---|---|---|
 | **drand / tlock** | Encrypts each spend key to a future round — the lock itself | `npm run gate` (decrypt throws `NOT_YET`, then succeeds) |
-| **Ledger** (Device Management Kit) | Issuer key signs the schedule with an on-device confirmation, via the Ledger DMK (Agent Stack) on Speculos | `scripts/test-ledger.ts` |
+| **Ledger** (Device Management Kit) | Three on-device authorities only the device can exercise: **signs the schedule** (root of trust), **co-signs any over-`perTxMax` withdrawal** (the autonomous-vs-explicit boundary), and **holds the audit view keys** (receipts open only on a device tap) — all via the Ledger DMK (Agent Stack) on Speculos, no hardware | `scripts/test-ledger.ts`, `scripts/test-vault-ledger.ts` (3/3), `npm run demo` |
 | **Hedera** | Root of trust + money + audit: the ciphertexts and encrypted receipts live on an HCS topic, and the **`PeriodVault`** contract holds the treasury and enforces each period's budget + `[start,end]` window + per-tx ceiling on-chain (`withdraw` reverts otherwise); x402 settled via Blocky402 | `scripts/test-vault.ts` (gate 5/5), `scripts/day1-gate.ts` |
 | **Bazantic / MCP** | The whole capability exposed as MCP tools so other agents pay through Notyet — A2A payments that inherit the one-period blast radius | `bazantic/recipe.md` |
 
@@ -56,7 +56,7 @@ the issue / spend / audit flows.
 - **Root of trust (Hedera HCS):** the Ledger-signed schedule is posted to an HCS topic as
   a `notyet:schedule` message; the agent reads it back and verifies the signature against
   the trusted issuer.
-- **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D`.
+- **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D` — signs the schedule, is the vault's on-chain `approver` for over-cap withdrawals (`npm run gate:vault:ledger`, 3/3 on testnet), and reconstructs the per-period audit view keys on a device tap.
 - **Bazantic / MCP:** `bazantic/mcp-server.ts` exposes `notyet_status` + `notyet_pay` so
   any agent can pay through Notyet (`npm run mcp`).
 - **Hedera:** period accounts funded per-period; x402 settled through the Blocky402
@@ -129,6 +129,8 @@ Gate checks (the load-bearing primitives, verified against live services):
 
 ```bash
 npm run gate                  # tlock roundtrip + decrypted-key Hedera settlement
+npm run gate:vault            # PeriodVault on testnet: window + ecrecover + budget + perTxMax (5/5)
+npm run gate:vault:ledger     # over-cap withdrawal co-signed by the real Ledger device (3/3)
 npx tsx scripts/test-core.ts  # 17 offline checks (schedule, sign/verify, scoped receipts)
 ```
 
@@ -138,6 +140,55 @@ npx tsx scripts/test-core.ts  # 17 offline checks (schedule, sign/verify, scoped
 `HEDERA_MERCHANT_ID`. Secrets stay in `.env` (gitignored) — never committed. (The optional
 ENS identity layer on the `ens` branch also uses `SEPOLIA_RPC_URL`, `ENS_OWNER_KEY`, `ENS_NAME`.)
 
+## SDK: integrate in 10 lines
+
+Everything is one import away. There are only **three keys** to keep straight: the
+**issuer** (deploys + manages the vault, on a Ledger), the **agent account** (receives
+funds + pays the service), and the disposable **period keys** `k_i` (timelocked — they
+*are* the schedule).
+
+**Owner — deploy a vault and schedule a period (once):**
+```ts
+import { deployVault, deposit, commitPeriod, evmAddressOf,
+         encryptToRound, roundForTime, roundUnlockMs,
+         signScheduleWithLedger, publishSchedule, submitMessage, createTopic } from "notyet";
+import { generatePrivateKey } from "viem/accounts";
+
+const { contractId, contractEvm } = await deployVault(client, { agentEvm, approverEvm, initialTinybar: 0 });
+await deposit(client, contractId, 20_000_000);                       // fund the vault (tinybar)
+
+const k = generatePrivateKey();                                      // this period's disposable key
+const round = roundForTime(Date.now() + 86_400_000);                 // unlock in 24h
+const start = Math.floor(roundUnlockMs(round) / 1000) - 5;
+await commitPeriod(client, contractId, { i: 0, signerEvm: evmAddressOf(k),
+  budgetTinybar: 1_000_000n, start, end: start + 86_400, perTxMaxTinybar: 500_000n });
+const ciphertext = await encryptToRound(k.slice(2), round);          // tlock k, then wipe k
+
+const topic = await createTopic(client, "my-agent");
+await submitMessage(client, topic, JSON.stringify({ index: 0, round, ciphertext }));
+const signed = await signScheduleWithLedger(schedule);               // ← Ledger: one on-device tap
+await publishSchedule(client, topic, signed);                        // trust anchor → HCS
+```
+
+**Agent — spend period 0, only after it unlocks itself:**
+```ts
+import { resolveSchedule, decryptCiphertext, signWithdraw, withdraw,
+         payX402, HEDERA_TESTNET_CHAINID } from "notyet";
+
+await resolveSchedule(topic, issuerAddress);                         // verify Ledger sig, or refuse
+const k = (await decryptCiphertext(ciphertext)).toString("utf8");    // throws NOT_YET before the round
+const sig = await signWithdraw(k, { contractEvm, chainId: HEDERA_TESTNET_CHAINID,
+  i: 0, amtTinybar: 120_000n, spentTinybar: 0n, tag: "agent" });
+await withdraw(client, contractId, { i: 0, amtTinybar: 120_000n, agent: sig }); // on-chain gate
+await payX402("https://notyet.up.railway.app/price", { accountId: agentId, privateKey: agentKey });
+```
+
+**Other agents — pay through Notyet over MCP (Bazantic), no code:**
+```jsonc
+// notyet_pay(topicId, issuer, index) → verifies trust, unlocks (NOT_YET if early), settles x402
+{ "tool": "notyet_pay", "topicId": "0.0.123456", "issuer": "0x…", "index": 0 }
+```
+
 ## The three tracks — each load-bearing
 
 - **Hedera — AI & Agentic Payments.** A live, callable x402 service (`/price`) settled via
@@ -145,9 +196,12 @@ ENS identity layer on the `ens` branch also uses `SEPOLIA_RPC_URL`, `ENS_OWNER_K
   per-tx ceiling on-chain (one contract, not N wallets); and an HCS topic carrying the
   ciphertexts and encrypted receipts. *Remove it → no payment rail, no on-chain policy, no audit.*
 - **Ledger — AI Agents.** The issuer authority key lives on the device (Ledger **Device
-  Management Kit** / Agent Stack, run headless on Speculos) and signs the schedule with one
-  on-device confirmation. The agent never holds it. *Remove it → the schedule has no trusted
-  signer.*
+  Management Kit** / Agent Stack, run headless on Speculos) and exercises **three authorities
+  only the device can**: it signs the schedule (trust anchor), co-signs any withdrawal over a
+  period's `perTxMax` (the explicit-approval boundary — proven on-chain, `gate:vault:ledger`),
+  and holds the per-period audit view keys (receipts the agent seals but cannot reopen — only
+  a device tap does). The agent never holds any of them. *Remove it → no trusted signer, no
+  human ceiling on big spends, and the books have no key-holder.*
 - **Bazantic — Agentify a New API.** The capability is an MCP server (`notyet_status`,
   `notyet_pay`) so other agents pay through Notyet — A2A payments that inherit the timelock's
   one-period blast radius. *Remove it → the capability isn't reachable by other agents.*

@@ -30,9 +30,12 @@ period i  ──tlock.encrypt(spendKey_i, round_i)──▶  ciphertext_i   (pub
 
 ## Trust boundaries (which track secures what)
 
-- **Ledger (Device Management Kit / Speculos)** — *root of authority.* The issuer key signs
-  the schedule with an on-device confirmation. The agent never holds it; a tampered schedule
-  fails verification.
+- **Ledger (Device Management Kit / Speculos)** — *root of authority.* One device key holds
+  three authorities the agent never gets: it **signs the schedule** (a tampered schedule
+  fails verification), it is the vault's on-chain **approver** that must **co-sign any
+  withdrawal over `perTxMax`** (proven live in `scripts/test-vault-ledger.ts`, 3/3), and it
+  **reconstructs the per-period audit view keys** on a device tap (the agent seals receipts
+  to the public half and can never reopen them — `issuer/ledger.ledgerViewKeyPair`).
 - **drand / tlock** — *the lock.* Binds each key to a wall-clock moment. No key server.
 - **Hedera** — *root of trust + money + audit.* One HCS topic carries the signed schedule
   (the agent reads it back and **refuses** unless it recovers to the trusted issuer), the
@@ -106,10 +109,20 @@ Owner now holds nothing usable. Walk away.
 
 ## Flow 3 — Audit (scoped, after the fact)
 
-Each period's **view key** is HKDF-derived from a master secret (`issuer/derive.ts`).
-A receipt is sealed with NaCl secretbox under that view key. Hand out one period's view
-key and only that period's receipts decrypt; every other message on the topic stays
-ciphertext. Auditability without a global spy key.
+Two implementations, same scoping property:
+
+- **Device-born (the `npm run demo` path).** Each period's view keypair is derived from a
+  Ledger signature over `notyet:view:<i>` — deterministic (RFC 6979), so the same tap always
+  yields the same key, but the secret **never touches disk**. Only the *public* half is
+  published; the agent **seals** each receipt to it (`sealReceipt`, ephemeral-X25519 box) and
+  can never reopen it. Opening period *i*'s books is one on-device tap
+  (`ledgerViewKeyPair(i)` → `openSealedReceipt`), scoped to that period alone.
+- **Software fallback (the hosted dashboard).** Where no device is attached, each view key is
+  HKDF-derived from a master secret (`issuer/derive.ts`) and receipts use NaCl secretbox
+  (`encryptReceipt`). Same "one key reveals one period" guarantee, no hardware.
+
+Either way: hand out one period's view key and only that period's receipts decrypt; every
+other message on the topic stays ciphertext. Auditability without a global spy key.
 
 ## Stopping
 

@@ -80,11 +80,49 @@ shows "Commit a spend period · Budget 0.5 HBAR · Opens <date>" instead of call
   isn't clear for a hackathon timeframe. **Suggested fix:** a "test your descriptor on
   Speculos without registry submission" flow.
 
-## 9. 🟩 `perTxMax` escalation maps cleanly onto the HITL guideline
-The track's "clear boundaries between autonomous behavior and explicit approval" translated
-directly into one contract rule: withdrawals ≤ `perTxMax` are autonomous (agent sig only);
-above it, the vault requires the **approver (Ledger) co-signature**. The device tap *is* the
-boundary. Having a concrete on-chain threshold made the guideline implementable and demoable.
+## 9. 🟩 `perTxMax` escalation maps cleanly onto the HITL guideline (now wired + on-chain proven)
+*(2026-09-11)* The track's "clear boundaries between autonomous behavior and explicit
+approval" translated directly into one contract rule: withdrawals ≤ `perTxMax` are autonomous
+(agent sig only); above it, the vault requires the **approver (Ledger) co-signature**. The
+device tap *is* the boundary. This is no longer just in the contract — it's driven by the
+real device end-to-end: `npm run gate:vault:ledger` deploys a vault with the Ledger address
+as approver and proves on Hedera testnet that an over-cap withdrawal **reverts** with the
+agent signature alone and **succeeds** only with the on-device co-sign (gate 3/3;
+`scripts/test-vault-ledger.ts`). The same tap gates the over-cap step in `npm run demo`.
+
+## 10. 🟧 Signing a RAW 32-byte digest via DMK — bytes vs string is a silent footgun
+*(2026-09-11)* The contract's `ecrecover` expects an EIP-191 `personal_sign` over the raw
+32-byte withdrawal digest (matching viem's `signMessage({ message: { raw } })`). DMK's
+`signMessage(path, message)` happily takes a `string`, but a hex string is treated as UTF-8
+text — so signing `"0x1a2b…"` personal-signs the *characters*, not the 32 bytes, and
+`ecrecover` silently returns the wrong address (no error, just a failed `require`). The fix
+was to pass a `Uint8Array` (`hexToBytes(digest)`) so the device signs the bytes. **Suggested
+fix:** in the Ethereum signer kit, either reject ambiguous hex strings or document loudly
+that raw-digest signing must pass bytes; a `signDigest`/`signRaw` helper would remove the
+ambiguity entirely. We caught it only by recovering the address in a test before trusting it
+on-chain.
+
+## 11. 🟩 Deterministic ECDSA (RFC 6979) doubles as a device-bound KDF — but there's no first-class API
+*(2026-09-11)* For the audit layer we wanted view keys that **never touch disk** and that only
+the device can reconstruct. Because the Ethereum app signs deterministically (RFC 6979), a
+`signMessage("notyet:view:<i>")` yields the *same* signature every time, which we HKDF into a
+per-period X25519 keypair (`ledgerViewKeyPair`). The agent seals each receipt to the public
+half and literally cannot reopen it; one device tap regenerates the secret for a scoped audit.
+It works great — but we're **piggybacking on `signMessage`** to get a deterministic secret.
+**Suggested fix:** a first-class "derive a deterministic app-scoped secret from a label" API
+(à la BIP-85 / SLIP-0021) so this pattern doesn't rely on the signature-determinism side
+effect and doesn't consume a user-facing "sign message" prompt.
+
+## 12. 🟧 ERC-7730 clear-signing doesn't cover `personal_sign` digests — our HITL co-sign shows a blind hash
+*(2026-09-11)* Our over-cap approval is an EIP-191 `personal_sign` over a packed keccak
+digest (so it shares one `ecrecover` path with the agent signature). But ERC-7730 clear-signing
+targets **transactions / EIP-712 typed data**, not `personal_sign` — so on Speculos the device
+shows the approver a raw 32-byte hash, *not* "Approve withdrawal · Period 3 · 0.05 HBAR." To
+get the legible screen we'd have to restructure the co-sign as EIP-712 typed data with a
+matching descriptor. **Suggested fix:** extend ERC-7730 (or provide guidance) for structured
+`personal_sign`/message payloads, so an agent's "approve this action" message can be clear-signed
+without forcing it into an on-chain transaction shape. Until then, "make the human read what
+they approve" and "reuse one ecrecover path" are in tension — worth a documented pattern.
 
 ---
 

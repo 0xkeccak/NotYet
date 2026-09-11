@@ -12,7 +12,11 @@
 import { DeviceManagementKitBuilder } from "@ledgerhq/device-management-kit";
 import { speculosTransportFactory } from "@ledgerhq/device-transport-kit-speculos";
 import { SignerEthBuilder } from "@ledgerhq/device-signer-kit-ethereum";
+import { hexToBytes } from "viem";
+import { hkdfSync } from "node:crypto";
+import nacl from "tweetnacl";
 import { canonicalJSON } from "./schedule.js";
+import { withdrawDigest, type WithdrawDigestInput, type WithdrawSig } from "../sdk/vault.js";
 import type { Schedule, SignedSchedule } from "../sdk/types.js";
 
 const DERIVATION = "44'/60'/0'/0/0";
@@ -105,6 +109,66 @@ export async function signScheduleWithLedger(schedule: Schedule, opts: LedgerOpt
       s.s.replace(/^0x/, "") +
       v.toString(16).padStart(2, "0")) as `0x${string}`;
     return { schedule, signature };
+  } finally {
+    await dmk.disconnect({ sessionId }).catch(() => {});
+  }
+}
+
+const to32 = (h: string) => h.replace(/^0x/, "").padStart(64, "0");
+const normV = (v: number | string) => {
+  const n = typeof v === "number" ? v : parseInt(v, 16);
+  return n < 27 ? n + 27 : n; // the contract's ecrecover wants v ∈ {27,28}
+};
+
+/**
+ * #2 — The over-cap approver co-sign, on the device.
+ *
+ * When an agent asks the vault for more than a period's `perTxMax`, `withdraw` also
+ * requires a signature from the committed approver — the Ledger. This asks the device to
+ * personal-sign the SAME digest the contract re-derives (tag "approve"), so a human tap
+ * is the explicit boundary between autonomous small spends and a big irreversible one.
+ * Signs the raw 32-byte digest as bytes so the EIP-191 prefix matches viem/the contract.
+ */
+export async function ledgerApproveWithdraw(
+  d: Omit<WithdrawDigestInput, "tag">,
+  opts: LedgerOptions = {},
+): Promise<WithdrawSig> {
+  const digest = withdrawDigest({ ...d, tag: "approve" });
+  const { dmk, sessionId, signer, url } = await connect(opts);
+  try {
+    const s = await runAction<{ r: string; s: string; v: number | string }>(
+      signer.signMessage(DERIVATION, hexToBytes(digest)),
+      url,
+    );
+    return { v: normV(s.v), r: ("0x" + to32(s.r)) as `0x${string}`, s: ("0x" + to32(s.s)) as `0x${string}` };
+  } finally {
+    await dmk.disconnect({ sessionId }).catch(() => {});
+  }
+}
+
+/**
+ * #3 — Audit view keys born from the device.
+ *
+ * The agent encrypts each period's receipt to `publicKey` (it holds no secret — a secret
+ * it literally cannot leak). Only a Ledger tap reconstructs `secretKey`: the device
+ * personal-signs a fixed per-period string, and ECDSA is deterministic (RFC 6979), so the
+ * same tap always yields the same key — but the key never touches disk. Disclosing period
+ * i to an auditor is one on-device confirmation, scoped to that period alone.
+ */
+export async function ledgerViewKeyPair(
+  i: number,
+  opts: LedgerOptions = {},
+): Promise<{ publicKey: Uint8Array; secretKey: Uint8Array }> {
+  const { dmk, sessionId, signer, url } = await connect(opts);
+  try {
+    const s = await runAction<{ r: string; s: string; v: number | string }>(
+      signer.signMessage(DERIVATION, `notyet:view:${i}`),
+      url,
+    );
+    const sig65 = Buffer.from(to32(s.r) + to32(s.s) + normV(s.v).toString(16).padStart(2, "0"), "hex");
+    const seed = Buffer.from(hkdfSync("sha256", sig65, Buffer.from("notyet:view"), Buffer.from(`v:${i}`), 32));
+    const kp = nacl.box.keyPair.fromSecretKey(new Uint8Array(seed));
+    return { publicKey: kp.publicKey, secretKey: kp.secretKey };
   } finally {
     await dmk.disconnect({ sessionId }).catch(() => {});
   }

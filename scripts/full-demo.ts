@@ -22,11 +22,10 @@ import { Client, PrivateKey, AccountId, Hbar, AccountCreateTransaction } from "@
 import { generatePrivateKey } from "viem/accounts";
 import { createTopic, submitMessage, readMessages } from "../sdk/hcs.js";
 import { decryptCiphertext, encryptToRound, isNotYet, roundForTime, roundUnlockMs } from "../sdk/tlock.js";
-import { deriveViewKey, newMasterViewSecret } from "../issuer/derive.js";
-import { encryptReceipt, decryptReceipt } from "../sdk/receipts.js";
+import { sealReceipt, openSealedReceipt } from "../sdk/receipts.js";
 import { payX402 } from "../sdk/pay.js";
 import { deployVault, commitPeriod, deposit, withdraw, signWithdraw, evmAddressOf, HEDERA_TESTNET_CHAINID } from "../sdk/vault.js";
-import { ledgerIssuerAddress, signScheduleWithLedger } from "../issuer/ledger.js";
+import { ledgerIssuerAddress, signScheduleWithLedger, ledgerApproveWithdraw, ledgerViewKeyPair } from "../issuer/ledger.js";
 import { publishSchedule } from "../issuer/publish.js";
 import { resolveSchedule } from "../agent/resolve.js";
 import type { Schedule, Receipt } from "../sdk/types.js";
@@ -62,16 +61,19 @@ console.log(`PeriodVault ${vaultId} deployed (agent ${agentAcctId}, approver = i
 
 const now = Date.now();
 const rounds = [roundForTime(now + 10_000), roundForTime(now + 600_000)]; // p0 soon, p1 far
-const master = newMasterViewSecret();
 const periods = [];
 for (let i = 0; i < rounds.length; i++) {
   const k = generatePrivateKey();
   const ciphertext = await encryptToRound(k.slice(2), rounds[i]);
   const start = Math.floor(roundUnlockMs(rounds[i]) / 1000) - 5;
+  // #3 — the period's audit view key is born on the device: publish only its PUBLIC half
+  // so the agent can seal receipts to it but can never read them back.
+  const view = await ledgerViewKeyPair(i);
+  const viewPubKey = Buffer.from(view.publicKey).toString("base64");
   await commitPeriod(c, vaultId, { i, signerEvm: evmAddressOf(k), budgetTinybar: BUDGET, start, end: start + 86_400, perTxMaxTinybar: PERTXMAX });
-  await submitMessage(c, topicId, JSON.stringify({ index: i, vaultIndex: i, round: rounds[i], ciphertext }));
-  periods.push({ index: i, startMs: roundUnlockMs(rounds[i]), round: rounds[i], vaultContractId: vaultId, vaultIndex: i, budget: BUDGET.toString() });
-  console.log(`  period ${i}: committed key ${evmAddressOf(k).slice(0, 10)}… to vault #${i}, round ${rounds[i]} -> HCS`);
+  await submitMessage(c, topicId, JSON.stringify({ index: i, vaultIndex: i, round: rounds[i], ciphertext, viewPubKey }));
+  periods.push({ index: i, startMs: roundUnlockMs(rounds[i]), round: rounds[i], vaultContractId: vaultId, vaultIndex: i, viewPubKey, budget: BUDGET.toString() });
+  console.log(`  period ${i}: committed key ${evmAddressOf(k).slice(0, 10)}… to vault #${i}, view key from device, round ${rounds[i]} -> HCS`);
 }
 
 const schedule: Schedule = { agentId: agentLabel, network: "hedera:testnet", asset: "0.0.0", hcsTopicId: topicId, issuerPubKey: issuer, periods, createdMs: now };
@@ -110,21 +112,42 @@ console.log("paying x402 service from the released funds…");
 const result = await payX402(SERVICE_URL, { accountId: agentAcctId, privateKey: agentKeyObj.toStringRaw() });
 console.log("paid:", result.paid, "| data:", JSON.stringify(result.data));
 if (result.hashscan) console.log("HashScan:", result.hashscan);
+
+// ---------- HUMAN-IN-THE-LOOP CEILING (Ledger) ----------
+// Small spends are autonomous; a single withdrawal over perTxMax needs the owner's Ledger.
+const bigAmt = PERTXMAX + 100_000n; // just over the ceiling
+const bigSig = () => signWithdraw(spendKey, { contractEvm: vaultEvm, chainId: HEDERA_TESTNET_CHAINID, i: p0.vaultIndex, amtTinybar: bigAmt, spentTinybar: WITHDRAW, tag: "agent" });
+console.log(`\nagent requests an OVER-CAP withdrawal (${bigAmt} > perTxMax ${PERTXMAX})…`);
+try {
+  await withdraw(c, vaultId, { i: p0.vaultIndex, amtTinybar: bigAmt, agent: await bigSig() });
+  console.log("  UNEXPECTED: over-cap succeeded without the device");
+} catch {
+  console.log("  blocked on-chain — the contract requires the approver (Ledger) co-signature");
+}
+console.log("  owner approves on the Ledger (DMK tap)…");
+const approver = await ledgerApproveWithdraw({ contractEvm: vaultEvm, chainId: HEDERA_TESTNET_CHAINID, i: p0.vaultIndex, amtTinybar: bigAmt, spentTinybar: WITHDRAW });
+const bstatus = await withdraw(c, vaultId, { i: p0.vaultIndex, amtTinybar: bigAmt, agent: await bigSig(), approver });
+console.log(`  over-cap withdraw WITH device co-sign: ${bstatus} — the explicit-approval boundary, on-chain`);
 c.close();
 
+// #3 — the agent seals the receipt to the period's PUBLIC view key; it cannot reopen it.
 const receipt: Receipt = { periodIndex: 0, service: "price", amount: "100000", timestampMs: Date.now(), resultHash: "demo" };
-await submitMessage(hedera(), topicId, encryptReceipt(receipt, deriveViewKey(master, 0)));
-console.log("encrypted receipt -> HCS");
+await submitMessage(hedera(), topicId, sealReceipt(receipt, Uint8Array.from(Buffer.from(p0.viewPubKey, "base64"))));
+console.log("sealed receipt -> HCS (only a Ledger tap can open it)");
 
 // ---------- AUDIT ----------
 console.log("\n== AUDIT ==");
 await sleep(4000);
 const all = await readMessages(topicId);
-const v0 = deriveViewKey(master, 0);
+// The books open only with a Ledger tap: reconstruct period 0's secret view key on the
+// device, decrypt its receipt — and prove period 1's device key cannot read it.
+console.log("owner taps the Ledger to reconstruct period 0's view key…");
+const v0 = await ledgerViewKeyPair(0);
+const v1 = await ledgerViewKeyPair(1);
 let read = 0, blockedWithNeighbor = 0;
-for (const m of all) { try { decryptReceipt(m.contents, v0); read++; } catch {} }
-for (const m of all) { try { decryptReceipt(m.contents, deriveViewKey(master, 1)); } catch { blockedWithNeighbor++; } }
-console.log(`period 0 view key decrypted ${read} receipt(s); ${blockedWithNeighbor}/${all.length} messages unreadable with period 1's key`);
+for (const m of all) { try { openSealedReceipt(m.contents, v0.secretKey); read++; } catch {} }
+for (const m of all) { try { openSealedReceipt(m.contents, v1.secretKey); } catch { blockedWithNeighbor++; } }
+console.log(`period 0 device key opened ${read} receipt(s); ${blockedWithNeighbor}/${all.length} messages unreadable with period 1's key`);
 
-console.log("\nFULL DEMO OK — Ledger (DMK) signed · HCS-verified trust · timelock enforced · PeriodVault withdraw on-chain · Hedera settled · scoped audit");
+console.log("\nFULL DEMO OK — Ledger (DMK) signed schedule + approved over-cap spend + holds the audit keys · HCS-verified trust · timelock enforced · PeriodVault withdraw on-chain · Hedera settled · device-scoped audit");
 process.exit(result.paid ? 0 : 1);

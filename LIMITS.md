@@ -24,10 +24,9 @@
   up to that period's *remaining* budget, so a compromise mid-window costs at most that.
   PeriodVault bounds this three ways on-chain (window end, budget cap, `perTxMax` requiring
   the Ledger co-sign) — but it does not make an unlocked, in-window key un-spendable.
-- **A live-run PeriodVault gate (yet).** The contract, client and gate are complete and the
-  signature↔`ecrecover` path is verified offline; the on-chain reverts (window/budget/
-  escalation) are pending a testnet run against a funded payer. Claimed as *built + offline-
-  verified*, not *settled live* — until the gate is green.
+- *(Resolved 2026-09-11)* The PeriodVault gate is **green live on Hedera testnet** — deploy
+  → deposit → in-window withdraw settles, and future-window / over-budget / over-`perTxMax`
+  (without the approver) all revert on-chain. A withdrawal moved real HBAR to the recipient.
 - **Novel cryptography.** tlock is drand's; the application to agent spend authority is
   ours. Not quantum-resistant (BLS/IBE, as drand states).
 - **A physical Ledger device in this build.** The issuer key runs on **Speculos**,

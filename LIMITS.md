@@ -15,8 +15,10 @@
 
 - **That no machine ever held the plaintext keys.** During issuance the issuer process
   holds every spend key in plaintext at once, in order to encrypt them — a momentary
-  honeypot. We run issuance on the trusted (Key Ring) box and wipe immediately after.
-  The window is seconds, not the lifetime of a secrets manager — but it exists.
+  honeypot. We run issuance on the issuer host and wipe immediately after (the keys are
+  never persisted). The window is seconds, not the lifetime of a secrets manager — but it
+  exists. (Ledger Key Ring would be the natural at-rest store here, but it's USB-only with
+  no headless path — see LEDGER_FEEDBACK.md — so this build uses in-process wipe instead.)
 - **Revocation or clawback**, before or after unlock. You can only *not issue* the next
   period (or not fund it). Giving the owner a co-signing key would let them spend anytime
   and break "not even the owner." We chose consistency over a kill switch.

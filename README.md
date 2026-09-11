@@ -40,7 +40,7 @@ period's** balance — the rest of the keys still don't exist.
 |---|---|---|
 | **drand / tlock** | Encrypts each spend key to a future round — the lock itself | `npm run gate` (decrypt throws `NOT_YET`, then succeeds) |
 | **Ledger** (Device Management Kit) | Issuer key signs the schedule with an on-device confirmation, via the Ledger DMK (Agent Stack) on Speculos | `scripts/test-ledger.ts` |
-| **Hedera** | Root of trust + money + audit: the signed schedule, the ciphertexts, and the encrypted receipts all live on one HCS topic; one funded account per period; x402 settled via Blocky402. The agent verifies the schedule against the trusted issuer and refuses on mismatch | `scripts/test-ledger.ts`, `scripts/day1-gate.ts` |
+| **Hedera** | Root of trust + money + audit: the ciphertexts and encrypted receipts live on an HCS topic, and the **`PeriodVault`** contract holds the treasury and enforces each period's budget + `[start,end]` window + per-tx ceiling on-chain (`withdraw` reverts otherwise); x402 settled via Blocky402 | `scripts/test-vault.ts` (gate 5/5), `scripts/day1-gate.ts` |
 | **Bazantic / MCP** | The whole capability exposed as MCP tools so other agents pay through Notyet — A2A payments that inherit the one-period blast radius | `bazantic/recipe.md` |
 
 One chain, no bridge: Hedera holds the money, the audit log, *and* the signed rules the
@@ -141,9 +141,9 @@ ENS identity layer on the `ens` branch also uses `SEPOLIA_RPC_URL`, `ENS_OWNER_K
 ## The three tracks — each load-bearing
 
 - **Hedera — AI & Agentic Payments.** A live, callable x402 service (`/price`) settled via
-  Blocky402; per-period accounts (a ledger-enforced budget cap); and one HCS topic that is
-  the **root of trust** *and* the audit log — the signed schedule, the ciphertexts, and the
-  encrypted receipts. *Remove it → no payment rail, no trust anchor, no audit, no cap.*
+  Blocky402; the **`PeriodVault`** contract that enforces each period's budget + window +
+  per-tx ceiling on-chain (one contract, not N wallets); and an HCS topic carrying the
+  ciphertexts and encrypted receipts. *Remove it → no payment rail, no on-chain policy, no audit.*
 - **Ledger — AI Agents.** The issuer authority key lives on the device (Ledger **Device
   Management Kit** / Agent Stack, run headless on Speculos) and signs the schedule with one
   on-device confirmation. The agent never holds it. *Remove it → the schedule has no trusted

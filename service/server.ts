@@ -57,7 +57,7 @@ export function mountX402(app: Express): void {
             payTo: MERCHANT,
             price: { asset: ASSET, amount: AMOUNT },
           },
-          description: "Notyet demo price feed — pay per call, no API key.",
+          description: "Notyet demo price feed (mock feed) — pay per call, no API key.",
           mimeType: "application/json",
         },
         "GET /data": {

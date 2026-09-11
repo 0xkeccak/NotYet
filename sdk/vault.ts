@@ -7,7 +7,7 @@
  */
 import {
   Client,
-  ContractCreateFlow,
+  ContractCreateTransaction,
   ContractExecuteTransaction,
   ContractFunctionParameters,
   ContractId,
@@ -41,10 +41,13 @@ export async function deployVault(
   opts: { agentEvm: string; approverEvm: string; initialTinybar: number },
 ): Promise<{ contractId: string; contractEvm: string }> {
   const params = new ContractFunctionParameters().addAddress(strip0x(opts.agentEvm)).addAddress(strip0x(opts.approverEvm));
-  const resp = await new ContractCreateFlow()
-    .setBytecode(VAULT_ARTIFACT.bytecode)
+  // Inline bytecode (4101 bytes fits the tx size limit) — avoids the ~2 HBAR FileCreate that
+  // ContractCreateFlow charges for uploading the bytecode to a Hedera file first.
+  const bytecode = Uint8Array.from(Buffer.from(VAULT_ARTIFACT.bytecode, "hex"));
+  const resp = await new ContractCreateTransaction()
+    .setBytecode(bytecode)
     .setConstructorParameters(params)
-    .setGas(3_000_000)
+    .setGas(1_200_000)
     .setInitialBalance(Hbar.fromTinybars(opts.initialTinybar))
     .execute(client);
   const receipt = await resp.getReceipt(client);
@@ -67,7 +70,7 @@ export async function commitPeriod(
     .addUint256(u256(p.perTxMaxWei));
   const resp = await new ContractExecuteTransaction()
     .setContractId(contractId)
-    .setGas(1_000_000)
+    .setGas(250_000)
     .setFunction("commitPeriod", params)
     .execute(client);
   return (await resp.getReceipt(client)).status.toString();
@@ -77,7 +80,7 @@ export async function commitPeriod(
 export async function deposit(client: Client, contractId: string, tinybar: number): Promise<string> {
   const resp = await new ContractExecuteTransaction()
     .setContractId(contractId)
-    .setGas(200_000)
+    .setGas(120_000)
     .setPayableAmount(Hbar.fromTinybars(tinybar))
     .setFunction("deposit")
     .execute(client);
@@ -136,7 +139,7 @@ export async function withdraw(
     .addBytes32(hexToBytes(o.s));
   const resp = await new ContractExecuteTransaction()
     .setContractId(contractId)
-    .setGas(1_000_000)
+    .setGas(250_000)
     .setFunction("withdraw", params)
     .execute(client);
   return (await resp.getReceipt(client)).status.toString();
@@ -146,7 +149,7 @@ export async function withdraw(
 export async function reclaim(client: Client, contractId: string, i: number): Promise<string> {
   const resp = await new ContractExecuteTransaction()
     .setContractId(contractId)
-    .setGas(300_000)
+    .setGas(150_000)
     .setFunction("reclaim", new ContractFunctionParameters().addUint256(u256(i)))
     .execute(client);
   return (await resp.getReceipt(client)).status.toString();

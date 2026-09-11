@@ -13,7 +13,7 @@
  * Run: npx tsx scripts/test-vault.ts
  */
 import "dotenv/config";
-import { Client, PrivateKey, AccountId } from "@hiero-ledger/sdk";
+import { Client, PrivateKey, AccountId, Hbar } from "@hiero-ledger/sdk";
 import { generatePrivateKey } from "viem/accounts";
 import {
   deployVault,
@@ -28,10 +28,12 @@ import {
 const HBAR = 1_000_000_000_000_000_000n; // 1 HBAR in weibar
 const wei = (h: number) => BigInt(Math.round(h * 1e18)); // HBAR → weibar (integer)
 
-const client = Client.forTestnet().setOperator(
-  AccountId.fromString(process.env.HEDERA_PAYER_ID!),
-  PrivateKey.fromStringECDSA(process.env.HEDERA_PAYER_KEY!.replace(/^0x/, "")),
-);
+const client = Client.forTestnet()
+  .setOperator(
+    AccountId.fromString(process.env.HEDERA_PAYER_ID!),
+    PrivateKey.fromStringECDSA(process.env.HEDERA_PAYER_KEY!.replace(/^0x/, "")),
+  )
+  .setDefaultMaxTransactionFee(new Hbar(5)); // headroom for inline contract create + calls
 
 let pass = 0;
 let fail = 0;
@@ -64,7 +66,7 @@ const approverEvm = evmAddressOf(approverK);
 const agentEvm = process.env.HEDERA_PAYER_EVM!; // withdrawals land back in the payer account
 
 console.log("deploying PeriodVault (agent=payer, approver=software Ledger stand-in)…");
-const { contractId, contractEvm } = await deployVault(client, { agentEvm, approverEvm, initialTinybar: 50_000_000 }); // 0.5 HBAR
+const { contractId, contractEvm } = await deployVault(client, { agentEvm, approverEvm, initialTinybar: 10_000_000 }); // 0.1 HBAR
 console.log(`  vault ${contractId}  (${contractEvm})`);
 
 // period 0 — open now, budget 0.05, perTxMax 0.02

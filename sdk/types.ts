@@ -7,8 +7,12 @@ export interface Period {
   startMs: number;
   /** drand round whose signature decrypts this period's spend key. */
   round: number;
-  /** Hedera account holding this period's budget, keyed to pub(spendKey). */
+  /** Hedera account holding this period's budget, keyed to pub(spendKey) (accounts model). */
   hederaAccountId?: string;
+  /** PeriodVault contract holding the treasury (vault settlement model). */
+  vaultContractId?: string;
+  /** On-chain period index committed in the vault. */
+  vaultIndex?: number;
   /** Budget for this period, in the asset's smallest units. */
   budget: string;
 }

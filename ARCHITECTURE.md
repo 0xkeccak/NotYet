@@ -72,9 +72,11 @@ owner can get their money back but can never pull a live period forward. One acc
 readable policy; a compromised agent still loses at most one period's budget.
 
 > Rollout note: the contract (`contracts/PeriodVault.sol`), client (`sdk/vault.ts`) and gate
-> (`scripts/test-vault.ts`) are complete; the signature↔ecrecover path is verified offline.
-> The live demo keeps the earlier per-period-account path until the on-chain gate is run
-> against a funded payer, then swaps to the vault.
+> (`scripts/test-vault.ts`) are complete and the **on-chain gate passes 5/5 live** on Hedera
+> testnet (window / budget / ecrecover(k_i) / perTxMax-escalation all enforced; a withdrawal
+> moved real HBAR). A persistent showcase vault with a committed schedule is deployed at
+> `0.0.10469008` (approver = the Ledger issuer). The interactive landing demo still exercises
+> the timelock→x402 path directly; the vault is surfaced as a live, inspectable proof.
 
 ## Flow 1 — Issue (Human → Agent, once)
 

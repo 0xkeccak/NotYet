@@ -433,6 +433,11 @@
         <p>The merchant account that receives every settlement. Per-period funded accounts mean a hacked agent can spend at most one period's balance.</p>
         <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0.0.10436969</span> &nbsp; <a href="https://hashscan.io/testnet/account/0.0.10436969" target="_blank">account ↗</a></p></div>
 
+      <div class="card"><span class="badge b-green">Hedera · PeriodVault</span>
+        <h3 style="margin-top:12px">The policy is a live contract</h3>
+        <p>One vault gates spending by <b>time</b>, not by wallets: each period commits <span class="mono">address(k_i)</span>, a budget, a <span class="mono">[start,end]</span> window and a per-tx ceiling. Withdrawals enforce all four <b>on-chain</b> — future, expired, over-budget and over-limit all revert. Gate passes <b>5/5</b> live.</p>
+        <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0.0.10469008</span> &nbsp; <a href="https://hashscan.io/testnet/contract/0.0.10469008" target="_blank">contract ↗</a></p></div>
+
       <div class="card"><span class="badge b-amber">drand · quicknet</span>
         <h3 style="margin-top:12px">The clock nobody controls</h3>
         <p>A public threshold beacon, one signature every 3 seconds. That signature is the <i>only</i> thing that decrypts a period's key — and it does not exist until the round arrives.</p>

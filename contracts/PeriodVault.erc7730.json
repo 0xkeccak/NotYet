@@ -3,7 +3,7 @@
   "context": {
     "contract": {
       "deployments": [
-        { "chainId": 296, "address": "0x0000000000000000000000000000000000000000" }
+        { "chainId": 296, "address": "0x00000000000000000000000000000000009fbe90" }
       ],
       "abi": [
         { "type": "function", "name": "deposit", "stateMutability": "payable", "inputs": [], "outputs": [] },

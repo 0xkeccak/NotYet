@@ -1,64 +1,68 @@
-# NotYet — Bazantic recipes
+# NotYet — Bazantic
 
-Two eligible tracks from one recipe set:
+Two eligible surfaces from one capability:
 
-- **Agentify a new API** — the **drand** timelock beacon and **NotYet** itself are wrapped as
-  agent-callable gateways (`bazantic/gateways/*.json`) + the NotYet MCP server.
-- **Best recipe with sponsor APIs** — the flow below chains **three** APIs: drand (the clock),
-  NotYet (the timelocked pay capability), and the **Hedera Mirror Node** (independent
-  settlement confirmation). More than one sponsor/listed API in a single flow.
+- **Agentify a new API** — NotYet is wrapped as an agent-callable **gateway** on Bazantic,
+  auto-generated from `web/public/openapi.json`. Any agent can call it over the hosted MCP
+  endpoint with zero setup.
+- **Recipe** — a published, reusable Bazantic Recipe that chains the gateway's tools into one
+  "adopt time-gated spend authority" flow.
 
-## MCP server
+## Published Recipe
+
+**Scheduled Data Feed Payment on Hedera** ·
+`bazantic.com/.../recipes/scheduled-data-feed-payment-on-hedera` (published).
+
+Issue a timelocked spend schedule for a data feed on NotYet, find the period that is ready to
+unlock, unlock it, and settle the x402 payment on Hedera — returning the price data + a
+settlement link. Only the currently-unlocked period can be spent, so a compromised caller's
+blast radius is one period.
+
+**Non-custodial by construction.** The Recipe takes **no secrets** — NotYet holds all operator
+config server-side. Inputs are only:
+
+| Input | Req? | Default | Meaning |
+|---|---|---|---|
+| `count` | optional | 3 | number of periods to schedule (1–5) |
+| `periodSec` | optional | 15 | seconds between period unlocks (8–120) |
+| `index` | required | — | the period index to unlock and pay |
+
+**Tools it calls** (the keyless gateway tools, generated from the OpenAPI spec):
+
+| Tool | Does |
+|---|---|
+| `issueSchedule` | Create a schedule of `count` periods; each period's spend key is committed on-chain, then tlock-encrypted to a future round. |
+| `getStatus` | List the schedule's periods and whether each is `locked` / `ready` / `paid`. |
+| `unlockAndPay` | Unlock period `index` (returns **NOT_YET** before its drand round), withdraw from the on-chain PeriodVault, settle the x402 payment. |
+| `getPrice` | The x402-gated service being paid (402 challenge until settled). |
+
+If `unlockAndPay` returns `notYet:true`, the correct behavior is to **wait for the period's
+round and retry** — never to look for another key. That property is stated in the tool
+description so an agent handles it without special-casing.
+
+## Local MCP server (the SDK surface, adoptable in one line)
 
 ```
-npx tsx bazantic/mcp-server.ts        # stdio MCP server
+claude mcp add notyet -- npx tsx bazantic/mcp-server.ts     # stdio MCP server
 ```
 
-Register it with Bazantic / any MCP client as `notyet`. It's also publishable as an npm
-package so *any* agent can "ask before spending" with a one-period blast radius.
-
-## Tools
+Four SDK-like tools — three read-only and keyless, one guarded action:
 
 | Tool | Input | Does |
 |---|---|---|
-| `notyet_status` | `topicId` | Lists the periods on a NotYet HCS topic and whether each is `locked` or `ready`. |
-| `notyet_pay` | `topicId`, `issuer`, `index`, `serviceUrl?` | Verifies the schedule on the topic is signed by the trusted `issuer`, unlocks period `index` (returns **NOT_YET** if its drand round hasn't arrived), pays the x402 service, returns the settlement. |
-
-## Gateways (agentified APIs)
-
-| Gateway | File | Base | Why it's in the flow |
-|---|---|---|---|
-| drand quicknet | `gateways/drand.json` | `https://api.drand.sh` | The public clock: has round R been published yet? This is what makes "not yet" true. |
-| Hedera Mirror Node | `gateways/hedera-mirror.json` | `https://testnet.mirrornode.hedera.com` | Independent confirmation that the settlement actually landed (and, for the vault, that a scheduled/withdrawn transfer executed). |
-
-Both are keyless public APIs — no secrets to agentify.
-
-## Recipe: "pay a metered API within a timelocked budget, and prove it settled"
-
-1. **drand** `GET /v2/beacons/quicknet/info` → read genesis + period; compute the current round.
-2. `notyet_status(topicId)` → find a `ready` period (its round has passed).
-3. `notyet_pay(topicId, issuer, index)` →
-   - refuses unless the schedule is signed by `issuer` (**trust**),
-   - refuses with **NOT_YET** if the period's key doesn't exist yet (**time**),
-   - otherwise settles a real x402 payment on Hedera and returns the data + a HashScan link.
-4. **Hedera Mirror Node** `GET /api/v1/transactions/{id}` (or `/schedules/{id}`) → confirm the
-   settlement/execution independently, from a source the paying agent doesn't control.
-
-If step 3 returns NOT_YET, the recipe's correct behavior is to **stop and retry on the
-period's round** — never to look for another key. That's the whole point, and it's stated in
-the tool description so an agent handles it without special-casing.
-
-## Reusability (the judging criterion)
-
-The recipe reads like a skill, not a one-off script:
-
-- **When to call:** an agent needs to pay for a service but must not be able to spend beyond
-  the current period's budget.
-- **What it needs:** a NotYet `topicId` + the `issuer` address to trust (from the owner), and
-  the service URL to pay.
-- **What to do with `NOT_YET`:** back off to the period's unlock time; do not seek another key.
-- **What you get:** the paid resource, a settlement id, and an independent mirror-node
-  confirmation — a complete, auditable "spent within authority" record.
+| `notyet_explain` | — | Self-documenting onboarding: what NotYet is + how to integrate. |
+| `notyet_status` | `topicId` | Lists a schedule's periods and whether each is `locked` or `ready`. |
+| `notyet_verify` | `topicId`, `issuer` | Confirms the schedule is signed by the trusted issuer (trust anchor). |
+| `notyet_spend` | `topicId`, `issuer`, `index`, `serviceUrl?` | Unlocks (NOT_YET if early), withdraws from the PeriodVault, settles x402. The only tool that moves funds. |
 
 Any agent that can speak MCP inherits the safety property for free: a compromised caller can
 only ever spend the one period whose key currently exists — never the whole schedule.
+
+## Gateways (agentified keyless APIs, used by the SDK/full demo)
+
+| Gateway | File | Base | Role |
+|---|---|---|---|
+| drand quicknet | `gateways/drand.json` | `https://api.drand.sh` | The public clock: has round R been published yet? This is what makes "not yet" true. |
+| Hedera Mirror Node | `gateways/hedera-mirror.json` | `https://testnet.mirrornode.hedera.com` | Independent confirmation that a settlement actually landed, from a source the paying agent doesn't control. |
+
+Both are keyless public APIs — no secrets to agentify.

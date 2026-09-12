@@ -25,6 +25,7 @@
     "compile:vault": "tsx scripts/compile-vault.ts",
     "gate:vault": "tsx scripts/test-vault.ts",
     "gate:vault:ledger": "tsx scripts/test-vault-ledger.ts",
+    "gate:vault:relay": "tsx scripts/test-vault-relay-ledger.ts",
     "id": "tsx scripts/hcs-14-id.ts",
     "typecheck": "tsc --noEmit"
   },

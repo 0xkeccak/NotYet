@@ -147,6 +147,28 @@ export async function ledgerApproveWithdraw(
 }
 
 /**
+ * Sign a serialized (unsigned) EVM transaction on the device. This is what lets the Ledger
+ * be the vault's on-chain *owner* — deploy / deposit / commitPeriod submitted through the
+ * Hedera JSON-RPC relay as ordinary Ethereum transactions the device signs. Pass viem's
+ * `serializeTransaction(tx)` bytes; get back {r,s,v} to re-serialize the signed tx.
+ */
+export async function signTxWithLedger(
+  serializedUnsignedTx: `0x${string}`,
+  opts: LedgerOptions = {},
+): Promise<{ r: `0x${string}`; s: `0x${string}`; v: number }> {
+  const { dmk, sessionId, signer, url } = await connect(opts);
+  try {
+    const s = await runAction<{ r: string; s: string; v: number }>(
+      signer.signTransaction(DERIVATION, hexToBytes(serializedUnsignedTx)),
+      url,
+    );
+    return { r: ("0x" + to32(s.r)) as `0x${string}`, s: ("0x" + to32(s.s)) as `0x${string}`, v: s.v };
+  } finally {
+    await dmk.disconnect({ sessionId }).catch(() => {});
+  }
+}
+
+/**
  * #3 — Audit view keys born from the device.
  *
  * The agent encrypts each period's receipt to `publicKey` (it holds no secret — a secret

@@ -124,6 +124,27 @@ matching descriptor. **Suggested fix:** extend ERC-7730 (or provide guidance) fo
 without forcing it into an on-chain transaction shape. Until then, "make the human read what
 they approve" and "reuse one ecrecover path" are in tension — worth a documented pattern.
 
+## 13. 🟧 Making the Ledger the on-chain *owner* works — but needs blind signing, and clear-signing would fix it
+*(2026-09-12)* We added a path where the Ledger is not just the approver but the vault's
+on-chain **owner**: deploy / `commitPeriod` are submitted through the Hedera **JSON-RPC relay**
+as ordinary EVM transactions **signed on the device** (`signTxWithLedger` + `sdk/vault-relay.ts`).
+It works — we deployed a vault whose on-chain `owner()` and `approver()` are **both** the Ledger
+address (`gate:vault:relay`), signed entirely on Speculos. Friction:
+- **Contract-creation / contract-call txs require Blind signing = ON.** With it off, the app
+  rejects them with `0x6a80` ("Invalid data") *before* any review screen — no hint that the
+  toggle is the cause. A first-time dev will assume their transaction encoding is wrong. There's
+  no clear-sign descriptor for an arbitrary `commitPeriod` call, so blind signing is unavoidable
+  today. **Suggested fix:** when a contract tx is rejected for this reason, surface a distinct
+  error ("enable Blind signing") rather than a generic `0x6a80`; and let an ERC-7730 descriptor
+  cover these calls so the device can clear-sign instead of blind-sign.
+- **Multi-transaction headless runs are fragile on the emulator.** Auto-approving via the
+  Speculos button API is fine for a single signature, but across several blind-signed txs in one
+  run the emulator is easy to leave mid-exchange (a killed process → `0x6980` on the next call)
+  or to wander into Settings and flip Blind signing off between txs. A real device (a human
+  pressing) sidesteps this; for CI, a documented "return to home after each action / set-setting
+  via APDU" helper in the Speculos transport would make headless multi-tx flows reliable. We
+  proved the deploy end-to-end; the combined deploy+commit run is the flaky one, purely from this.
+
 ---
 
 ### Summary for judges

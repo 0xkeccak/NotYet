@@ -35,6 +35,15 @@ export {
   type WithdrawSig,
 } from "./vault.js";
 
+// PeriodVault — optional Ledger-as-owner path: deploy/commit signed on the device through
+// the Hedera JSON-RPC relay, so on-chain owner == approver == the Ledger (one identity).
+export {
+  hederaRelayClient,
+  deployVaultViaRelay,
+  commitPeriodViaRelay,
+  HEDERA_RELAY_URL,
+} from "./vault-relay.js";
+
 // Scoped-audit receipts (symmetric + device-born sealed) + schedule signing
 export { encryptReceipt, decryptReceipt, sealReceipt, openSealedReceipt } from "./receipts.js";
 export { signSchedule, verifySchedule, issuerAddress } from "./sign.js";

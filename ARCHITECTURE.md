@@ -74,6 +74,22 @@ replayed. `reclaim(i)` returns the unspent remainder to the owner **only after `
 owner can get their money back but can never pull a live period forward. One account, one
 readable policy; a compromised agent still loses at most one period's budget.
 
+### Two ownership models (deploy-time choice)
+
+- **Native (default, `sdk/vault.ts`).** An ordinary Hedera account deploys/commits/funds and
+  pays gas; the Ledger is the on-chain `approver` (used only via `ecrecover` on a signed
+  message). Three roles: owner account · agent · Ledger approver.
+- **Ledger-as-owner (optional, `sdk/vault-relay.ts`).** The owner-only operations (deploy,
+  `commitPeriod`) are submitted through the Hedera **JSON-RPC relay** as EVM transactions
+  **signed on the Ledger**, so on-chain `owner() == approver() ==` the device — **one identity**,
+  collapsing the model to two roles (Ledger + agent). Requires the Ledger EVM address funded for
+  gas and **Blind signing enabled** (contract txs have no clear-sign descriptor). Deposits stay
+  permissionless; the agent still withdraws via the native path.
+  > Status: the Ledger-signed **deploy is proven live** — a vault with `owner()==approver()==`
+  > the Ledger address (`gate:vault:relay`). The combined deploy+commit headless run is flaky on
+  > the Speculos emulator (multi-tx button automation — see LEDGER_FEEDBACK.md #13); the signing
+  > path is identical to the proven deploy.
+
 > Rollout note: the contract (`contracts/PeriodVault.sol`), client (`sdk/vault.ts`) and gate
 > (`scripts/test-vault.ts`) are complete and the **on-chain gate passes 5/5 live** on Hedera
 > testnet (window / budget / ecrecover(k_i) / perTxMax-escalation all enforced; a withdrawal

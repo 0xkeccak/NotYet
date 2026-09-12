@@ -490,24 +490,21 @@
     <div class="grid g2" style="margin-top:28px;align-items:start">
 
       <div>
-        <span class="badge b-blue">Bazantic · MCP — no code</span>
-        <h3 style="margin:12px 0 6px">Any agent pays through NotYet</h3>
-        <p class="small" style="margin:0 0 14px">Register one MCP server and any agent — Claude, a LangChain bot, someone else's assistant — can discover and call two tools. It verifies the issuer's signature, unlocks only the period whose time has come, and settles the x402 payment. A hacked caller can still only spend that one period.</p>
+        <span class="badge b-blue">MCP — one line, no code</span>
+        <h3 style="margin:12px 0 6px">Any agent adopts NotYet</h3>
+        <p class="small" style="margin:0 0 14px">Add one MCP server and any agent — Claude, Cursor, a LangChain bot — gets time-gated spend authority. <b>Three of the four tools are read-only and need no config</b>, so it works the moment it's added. The one action tool unlocks only the period whose time has come and settles the payment — a hacked caller can still spend just that one period.</p>
         <div class="term" style="max-width:none">
           <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
-            <span class="fn">mcp-config.json</span></div>
-          <pre><span class="c-dim">// 1 · register NotYet as an MCP server — that's the install</span>
-{ <span class="c-green">"mcpServers"</span>: { <span class="c-green">"notyet"</span>: {
-  <span class="c-green">"command"</span>: <span class="c-green">"npx"</span>,
-  <span class="c-green">"args"</span>: [<span class="c-green">"tsx"</span>, <span class="c-green">"bazantic/mcp-server.ts"</span>] } } }
+            <span class="fn">add-notyet.sh</span></div>
+          <pre><span class="c-dim">// hosted (via the Bazantic gateway) — or local from the repo</span>
+claude mcp add <span class="c-blue">--transport</span> http notyet \
+  <span class="c-green">https://&lt;gateway&gt;.bazgateway.com/mcp</span>
 
-<span class="c-dim">// 2 · any agent can now call two tools:</span>
-notyet_status(<span class="c-green">"0.0.123456"</span>)
-  <span class="c-dim">→ [{ index, state: "locked" | "ready", secondsToUnlock }]</span>
-
-notyet_pay(<span class="c-green">"0.0.123456"</span>, issuer, <span class="c-blue">0</span>)
-  <span class="c-dim">→ { paid, settlement, hashscan }</span>
-  <span class="c-dim">→ { notYet: true }  // before the period's round</span></pre>
+<span class="c-dim">// then any agent calls these tools:</span>
+notyet_explain()              <span class="c-dim">// what it is + how to integrate</span>
+notyet_status(<span class="c-green">"0.0.123456"</span>)     <span class="c-dim">// locked | ready per period</span>
+notyet_verify(topicId, issuer) <span class="c-dim">// signed by who I trust?</span>
+notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim">// unlock → pay (NOT_YET if early)</span></pre>
         </div>
       </div>
 

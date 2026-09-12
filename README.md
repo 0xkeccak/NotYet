@@ -57,8 +57,9 @@ the issue / spend / audit flows.
   a `notyet:schedule` message; the agent reads it back and verifies the signature against
   the trusted issuer.
 - **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D` — signs the schedule, is the vault's on-chain `approver` for over-cap withdrawals (`npm run gate:vault:ledger`, 3/3 on testnet), and reconstructs the per-period audit view keys on a device tap.
-- **Bazantic / MCP:** `bazantic/mcp-server.ts` exposes `notyet_status` + `notyet_pay` so
-  any agent can pay through Notyet (`npm run mcp`).
+- **Bazantic / MCP:** `bazantic/mcp-server.ts` exposes `notyet_explain` · `notyet_status` ·
+  `notyet_verify` · `notyet_spend` so any agent can adopt NotYet in one line — read-only tools
+  need no config (`npm run mcp`). Also hosted over HTTP via the Bazantic gateway.
 - **Hedera:** the **PeriodVault** holds the treasury and gates each withdrawal on-chain;
   x402 settled through the Blocky402 testnet facilitator (`api.testnet.blocky402.com`,
   keyless), the facilitator sponsors the fee. Example settlement:
@@ -205,10 +206,40 @@ await withdraw(client, contractId, { i: 0, amtTinybar: 120_000n, agent: sig }); 
 await payX402("https://notyet.up.railway.app/price", { accountId: agentId, privateKey: agentKey });
 ```
 
-**Other agents — pay through Notyet over MCP (Bazantic), no code:**
+## Adopt NotYet in any agent (MCP)
+
+The same capability is an **MCP server** — the agent-facing SDK surface. Any agent (Claude,
+Cursor, ChatGPT, a custom loop) adopts time-gated spend authority in one line; three of the
+four tools are **read-only and need no configuration**, so it works the moment it's added.
+
+**Add it** — hosted (via the Bazantic gateway) or local:
+```bash
+# hosted (no clone): the gateway serves the MCP over HTTP
+claude mcp add --transport http notyet https://<your-gateway>.bazgateway.com/mcp
+
+# local: run the server from this repo
+claude mcp add notyet -- npx tsx bazantic/mcp-server.ts
+```
+
+**The four tools** (`bazantic/mcp-server.ts`):
+| Tool | Needs config? | What it does |
+|---|---|---|
+| `notyet_explain()` | no | Self-documents the capability + how to integrate — call it first. |
+| `notyet_status(topicId)` | no | Lists a schedule's periods: `locked` / `ready`, seconds to unlock. |
+| `notyet_verify(topicId, issuer)` | no | Confirms the schedule is signed by the issuer you trust. |
+| `notyet_spend(topicId, issuer, index)` | yes¹ | The one guarded action: unlock (or `NOT_YET`), withdraw from the vault, settle x402. |
+
+¹ Only `notyet_spend` moves funds. In vault mode it needs operator config
+(`DEMO_VAULT_*` + a Hedera payer); in account mode the period's own funded account pays, no
+config. The read-only tools always work. Creating schedules (the owner side) uses the SDK
+above, not the MCP.
+
 ```jsonc
-// notyet_pay(topicId, issuer, index) → verifies trust, unlocks (NOT_YET if early), settles x402
-{ "tool": "notyet_pay", "topicId": "0.0.123456", "issuer": "0x…", "index": 0 }
+// a full adopt-and-spend loop, in tool calls:
+{ "tool": "notyet_explain" }
+{ "tool": "notyet_status", "topicId": "0.0.123456" }
+{ "tool": "notyet_verify", "topicId": "0.0.123456", "issuer": "0xDad7…6D8D" }
+{ "tool": "notyet_spend",  "topicId": "0.0.123456", "issuer": "0xDad7…6D8D", "index": 0 }
 ```
 
 ## The three tracks — each load-bearing
@@ -240,7 +271,7 @@ issuer/    schedule · derive · lock · ledger (DMK signer) · publish (to HCS)
 agent/     resolve (read + verify the schedule from HCS)
 service/   x402-gated price feed (Blocky402)
 web/       dashboard API (server) + editorial landing/demo (public/index.html)
-bazantic/  mcp-server (notyet_status + notyet_pay) · recipe.md
+bazantic/  mcp-server (explain · status · verify · spend) · recipe.md
 scripts/   day1-gate · test-core · test-ledger · e2e · full-demo · speculos-up · deploy
 start.ts   one-process entry (service + web) for hosting
 ```

@@ -114,6 +114,9 @@
   .term .bar{display:flex;gap:7px;padding:13px 15px;border-bottom:1px solid #26221a;align-items:center}
   .term .bar i{width:11px;height:11px;border-radius:50%;display:inline-block}
   .term .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#8c8574}
+  .term .bar .copy{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:#8c8574;background:transparent;border:1px solid #34302650;border-radius:6px;padding:3px 9px;cursor:pointer;transition:color .15s,border-color .15s}
+  .term .bar .copy:hover{color:#e9e4d6;border-color:#5a5344}
+  .term .bar .copy.ok{color:#27c93f;border-color:#27c93f70}
   .term pre{margin:0;padding:20px;font-family:var(--mono);font-size:13.5px;line-height:1.8;overflow-x:auto;color:#e9e4d6}
   .c-dim{color:#9c9482} .c-red{color:#ff7a6b} .c-green{color:#5cd99a} .c-amber{color:var(--yellow-2)} .c-blue{color:#7fb0ff} .c-violet{color:#b49bff}
 
@@ -224,7 +227,7 @@
 <nav><div class="wrap nav">
   <div class="brand"><span class="dot">⏳</span> notyet</div>
   <div class="navlinks">
-    <a href="#how">How</a><a href="#why">Why</a><a href="#demo">Live demo</a><a href="#proof">Proof</a><a href="#sdk">SDK</a>
+    <a href="#how">How</a><a href="#why">Why</a><a href="#demo">Live demo</a><a href="#proof">Proof</a><a href="#sdk">Integrate</a>
     <button class="themebtn" id="theme" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
     <a class="btn ghost" href="https://github.com/0xkeccak/NotYet" target="_blank" style="padding:8px 16px">GitHub ↗</a>
   </div>
@@ -421,17 +424,31 @@
     <p class="eyebrow">Proof, not promises</p>
     <h2 class="serif">Nothing here is a slide.</h2>
     <p class="lead" style="margin-top:16px">Every claim on this page points at a live testnet artifact you can open right now — the signed schedule on Hedera, the on-device issuer signature, and a real settled payment.</p>
-    <div class="grid g3" style="margin-top:30px">
+
+    <p class="eyebrow" style="margin-top:34px">🔑 The device does three things only it can</p>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="card"><span class="badge b-violet">1 · Signs</span>
+        <h3 style="margin:10px 0 6px">The schedule</h3>
+        <p class="small" style="margin:0">One on-device tap signs the whole plan — the trust anchor. Tamper with the rules and the agent refuses to act.</p></div>
+      <div class="card"><span class="badge b-violet">2 · Co-signs</span>
+        <h3 style="margin:10px 0 6px">Over-cap spends</h3>
+        <p class="small" style="margin:0">Small spends are autonomous; anything over the per-tx ceiling reverts on-chain until the device approves. <span class="mono">gate:vault:ledger</span> — 3/3.</p></div>
+      <div class="card"><span class="badge b-violet">3 · Holds</span>
+        <h3 style="margin:10px 0 6px">The audit keys</h3>
+        <p class="small" style="margin:0">The agent seals receipts to a key it can never reopen. Only a device tap reconstructs it to open one period's books.</p></div>
+    </div>
+
+    <div class="grid g3" style="margin-top:18px">
 
       <div class="card"><span class="badge b-blue">MCP · Bazantic</span>
         <h3 style="margin-top:12px">Any agent can call it</h3>
         <p>The capability is an <b>MCP server</b> (<span class="mono">notyet_status</span>, <span class="mono">notyet_pay</span>): other agents pay through Notyet and inherit the timelock — they can only ever spend the one period whose key exists.</p>
         <p class="src" style="margin-top:12px"><a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/recipe.md" target="_blank">recipe ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/mcp-server.ts" target="_blank">mcp-server ↗</a></p></div>
 
-      <div class="card"><span class="badge b-violet">Ledger · DMK</span>
-        <h3 style="margin-top:12px">Three device-only authorities</h3>
-        <p>One key on a Ledger (via the <b>Device Management Kit</b>, headless on Speculos) does three things only the device can: <b>signs the schedule</b> (tamper with the rules → verification fails), is the vault's on-chain <b>approver</b> for any over-ceiling withdrawal (<span class="mono">gate:vault:ledger</span> proves it: agent-alone reverts, device co-sign succeeds — 3/3 on testnet), and <b>reconstructs the per-period audit view keys</b> so the agent can seal receipts it can never reopen.</p>
-        <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0xDad7…6D8D</span> &nbsp; <a href="https://hashscan.io/testnet/contract/0.0.10471808" target="_blank">approver on the vault ↗</a></p></div>
+      <div class="card"><span class="badge b-violet">Ledger · owner mode</span>
+        <h3 style="margin-top:12px">The device can own the vault</h3>
+        <p>Beyond approving, the Ledger can be the vault's on-chain <b>owner</b>: deploy and <span class="mono">commitPeriod</span> are signed on the device and submitted through the Hedera JSON-RPC relay. We deployed a vault whose <span class="mono">owner()</span> and <span class="mono">approver()</span> are <b>both</b> the device — one identity, no separate operator key.</p>
+        <p class="src" style="margin-top:12px"><span class="mono" style="color:var(--ink)">0xDad7…6D8D</span> &nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/scripts/test-vault-relay-ledger.ts" target="_blank">gate:vault:relay ↗</a></p></div>
 
       <div class="card"><span class="badge b-green">Hedera · x402</span>
         <h3 style="margin-top:12px">A real settled payment</h3>
@@ -466,30 +483,65 @@
 <section id="sdk" class="alt">
   <div class="wrap">
     <p class="eyebrow">For builders</p>
-    <h2 class="serif">Any agent integrates in a few lines.</h2>
-    <div class="term" style="margin-top:26px;max-width:none">
-      <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
-        <span class="fn">agent/loop.ts</span></div>
-      <pre><span class="c-violet">import</span> { resolveSchedule, decryptCiphertext, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"notyet"</span>
+    <h2 class="serif">Two ways in: call it, or build on it.</h2>
+    <p class="lead" style="margin-top:14px">Most agents don't need our code at all — they reach NotYet as an <b>MCP tool</b> and inherit the one-period blast radius for free. If you're building the agent itself, the SDK is a few lines.</p>
+    <div class="grid g2" style="margin-top:28px;align-items:start">
 
-<span class="c-dim">// 1 · read the rules from Hedera (HCS) + verify the issuer's signature</span>
-<span class="c-dim">//     (throws UntrustedScheduleError if it isn't signed by the trusted issuer)</span>
+      <div>
+        <span class="badge b-blue">Bazantic · MCP — no code</span>
+        <h3 style="margin:12px 0 6px">Any agent pays through NotYet</h3>
+        <p class="small" style="margin:0 0 14px">Register one MCP server and any agent — Claude, a LangChain bot, someone else's assistant — can discover and call two tools. It verifies the issuer's signature, unlocks only the period whose time has come, and settles the x402 payment. A hacked caller can still only spend that one period.</p>
+        <div class="term" style="max-width:none">
+          <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
+            <span class="fn">mcp-config.json</span></div>
+          <pre><span class="c-dim">// 1 · register NotYet as an MCP server — that's the install</span>
+{ <span class="c-green">"mcpServers"</span>: { <span class="c-green">"notyet"</span>: {
+  <span class="c-green">"command"</span>: <span class="c-green">"npx"</span>,
+  <span class="c-green">"args"</span>: [<span class="c-green">"tsx"</span>, <span class="c-green">"bazantic/mcp-server.ts"</span>] } } }
+
+<span class="c-dim">// 2 · any agent can now call two tools:</span>
+notyet_status(<span class="c-green">"0.0.123456"</span>)
+  <span class="c-dim">→ [{ index, state: "locked" | "ready", secondsToUnlock }]</span>
+
+notyet_pay(<span class="c-green">"0.0.123456"</span>, issuer, <span class="c-blue">0</span>)
+  <span class="c-dim">→ { paid, settlement, hashscan }</span>
+  <span class="c-dim">→ { notYet: true }  // before the period's round</span></pre>
+        </div>
+      </div>
+
+      <div>
+        <span class="badge b-violet">SDK — build the agent</span>
+        <h3 style="margin:12px 0 6px">Or drive it yourself</h3>
+        <p class="small" style="margin:0 0 14px">Building the agent loop directly? Import the SDK: read the schedule, verify the Ledger signature, unlock on time, and settle — the same primitives the MCP server wraps.</p>
+        <div class="term" style="max-width:none">
+          <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
+            <span class="fn">agent/loop.ts</span></div>
+          <pre><span class="c-violet">import</span> { resolveSchedule, decryptCiphertext,
+  signWithdraw, withdraw, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"notyet"</span>
+
+<span class="c-dim">// 1 · read the rules from Hedera (HCS) + verify the issuer</span>
 <span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(topicId, trustedIssuer)
-<span class="c-blue">const</span> period = schedule.periods[now]
+<span class="c-blue">const</span> p = schedule.periods[now]
 
 <span class="c-violet">try</span> {
-  <span class="c-dim">// 2 · unlock this period's spend key (does not exist before its round)</span>
-  <span class="c-blue">const</span> key = (<span class="c-violet">await</span> decryptCiphertext(period.ciphertext)).toString()
+  <span class="c-dim">// 2 · unlock the key (does not exist before its round)</span>
+  <span class="c-blue">const</span> k = (<span class="c-violet">await</span> decryptCiphertext(p.ciphertext)).toString()
 
-  <span class="c-dim">// 3 · pay the x402 service — the key signs a real Hedera settlement</span>
-  <span class="c-blue">const</span> { hashscan } = <span class="c-violet">await</span> payX402(serviceUrl, {
-    accountId: period.accountId, privateKey: key,
-  })
+  <span class="c-dim">// 3 · withdraw from the vault (window+budget on-chain)…</span>
+  <span class="c-blue">const</span> sig = <span class="c-violet">await</span> signWithdraw(k, { i: p.vaultIndex, ... })
+  <span class="c-violet">await</span> withdraw(client, p.vaultContractId, { i: p.vaultIndex, ..., agent: sig })
+
+  <span class="c-dim">// 4 · …then pay the x402 service, settled on Hedera</span>
+  <span class="c-blue">const</span> { hashscan } = <span class="c-violet">await</span> payX402(serviceUrl, agentCreds)
 } <span class="c-violet">catch</span> (e) {
-  <span class="c-violet">if</span> (isNotYet(e)) <span class="c-violet">return</span> <span class="c-dim">// NOT_YET — come back on this period's round</span>
+  <span class="c-violet">if</span> (isNotYet(e)) <span class="c-violet">return</span> <span class="c-dim">// NOT_YET — retry on its round</span>
   <span class="c-violet">throw</span> e
 }</pre>
+        </div>
+      </div>
+
     </div>
+    <p class="small" style="margin-top:20px"><a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/recipe.md" target="_blank">Bazantic recipe ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/mcp-server.ts" target="_blank">mcp-server.ts ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet#sdk-integrate-in-10-lines" target="_blank">SDK in 10 lines ↗</a></p>
   </div>
 </section>
 
@@ -508,6 +560,19 @@
 <script>
 const $=(id)=>document.getElementById(id);
 const api=(p,b)=>fetch(p,b?{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)}:{}).then(r=>r.json());
+
+// copy buttons on every code block
+document.querySelectorAll(".term").forEach((t)=>{
+  const bar=t.querySelector(".bar"), pre=t.querySelector("pre");
+  if(!bar||!pre)return;
+  const b=document.createElement("button");
+  b.className="copy";b.type="button";b.textContent="copy";
+  b.onclick=async()=>{
+    try{await navigator.clipboard.writeText(pre.innerText);}catch{const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand("copy");s.removeAllRanges();}
+    b.textContent="copied";b.classList.add("ok");setTimeout(()=>{b.textContent="copy";b.classList.remove("ok");},1400);
+  };
+  bar.appendChild(b);
+});
 
 // live drand round ticker (quicknet: genesis 1692803367, 3s period) — client-side, no network
 const GENESIS=1692803367, PERIOD=3;

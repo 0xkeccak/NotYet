@@ -228,18 +228,26 @@
   .wf-live{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:inline-flex;align-items:center;gap:8px}
   .wf-track{display:flex;gap:13px;flex-wrap:wrap;align-items:stretch}
   .wf-node{flex:1 1 150px;min-width:148px;background:var(--card);border:1px solid var(--line);border-radius:15px;
-           padding:17px 15px 16px;position:relative;opacity:.55;filter:saturate(.7);
-           transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s,background .3s,opacity .3s,filter .3s}
+           padding:19px 15px 16px;position:relative;opacity:.9;overflow:hidden;
+           transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s,background .3s,opacity .3s}
+  .wf-node::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--ac,var(--line2))}
+  .wf-node .sn{position:absolute;top:11px;right:13px;font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--faint);
+               border:1px solid var(--line);border-radius:999px;width:20px;height:20px;display:grid;place-items:center}
   .wf-node .ic{font-size:27px;line-height:1;display:block;margin-bottom:10px}
   .wf-node .who{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
   .wf-node .tt{font-weight:600;font-size:15px;margin-top:6px;letter-spacing:-.01em;line-height:1.25}
   .wf-node .arrow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:var(--line2);font-size:16px;z-index:3;background:var(--paper);padding:0 1px}
   .wf-node:last-child .arrow{display:none}
-  .wf-node.done{opacity:1;filter:none;border-color:rgba(30,154,84,.42);background:linear-gradient(180deg,rgba(30,154,84,.07),transparent)}
-  .wf-node.active{opacity:1;filter:none;border-color:var(--gold);transform:translateY(-5px) scale(1.035);box-shadow:0 24px 48px -26px rgba(244,180,8,.65)}
+  .wf-node.done{opacity:1;border-color:rgba(30,154,84,.42);background:linear-gradient(180deg,rgba(30,154,84,.08),transparent)}
+  .wf-node.done .sn{color:var(--green);border-color:rgba(30,154,84,.5)}
+  .wf-node.active{opacity:1;border-color:var(--gold);transform:translateY(-5px) scale(1.035);box-shadow:0 24px 48px -26px rgba(244,180,8,.65)}
+  .wf-node.active::before{background:var(--gold);height:4px}
+  .wf-node.active .sn{color:#241900;background:var(--gold);border-color:var(--gold)}
   .wf-node.active .ic{animation:wfpop .45s}
   .wf-node.active .tt{color:var(--gold)}
   .wf-node.notyet.active{border-color:var(--red);box-shadow:0 24px 48px -24px rgba(208,57,43,.7);animation:wfshake .5s}
+  .wf-node.notyet.active::before{background:var(--red)}
+  .wf-node.notyet.active .sn{color:#fff;background:var(--red);border-color:var(--red)}
   .wf-node.notyet.active .tt{color:var(--red)}
   @keyframes wfpop{0%{transform:scale(.55)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
   @keyframes wfshake{0%,100%{transform:translateY(-5px) scale(1.035)}25%{transform:translateY(-5px) scale(1.035) rotate(-1.4deg)}75%{transform:translateY(-5px) scale(1.035) rotate(1.4deg)}}
@@ -648,16 +656,16 @@ $("incidents").innerHTML=INC.map(i=>`<div class="card inc"><div class="row" styl
 
 // ---- animated walkthrough (the flow, for anyone) ----
 const WF=[
- {who:"You + Ledger",ic:"🖊️",tt:"Set the rule",n:"STEP 1 · SIGN ONCE",line:"You sign the whole schedule <b>once on your Ledger</b> and walk away. No spend key ever stays with you — or with the agent."},
- {who:"drand · tlock",ic:"🔒",tt:"Lock to the future",n:"STEP 2 · TIMELOCK",line:"Each period's spend key is <b>encrypted to a future round</b> of a public clock, then wiped. The agent is left holding only ciphertext."},
- {who:"Agent",ic:"⛔",tt:"Try early → NOT_YET",n:"STEP 3 · THE MONEY SHOT",line:"A hacked or hasty agent reaches for a locked period. <b>The key doesn't exist yet — for anyone.</b> Nothing to steal, nothing it can even sign.",err:true},
- {who:"drand beacon",ic:"⏱️",tt:"The clock ticks",n:"STEP 4 · UNLOCK",line:"At the scheduled round the public beacon publishes a signature that <b>is</b> the key. Now — and only now — this one period's key exists."},
- {who:"Hedera · Vault",ic:"⚡",tt:"Spend within limits",n:"STEP 5 · WITHDRAW",line:"The agent withdraws from the on-chain <b>PeriodVault</b>. The contract checks the time window, the budget, and a per-tx ceiling — a spend over the cap needs a <b>Ledger tap</b>."},
- {who:"x402 · HCS",ic:"✅",tt:"Pay &amp; prove",n:"STEP 6 · SETTLE + AUDIT",line:"A <b>real payment settles on Hedera</b>. A sealed receipt lands on the audit log — openable only with your <b>device-held view key</b>. One period spent, fully provable."},
+ {who:"You + Ledger",ic:"🖊️",ac:"var(--violet)",tt:"Set the rule",n:"STEP 1 · SIGN ONCE",line:"You sign the whole schedule <b>once on your Ledger</b> and walk away. No spend key ever stays with you — or with the agent."},
+ {who:"drand · tlock",ic:"🔒",ac:"var(--gold)",tt:"Lock to the future",n:"STEP 2 · TIMELOCK",line:"Each period's spend key is <b>encrypted to a future round</b> of a public clock, then wiped. The agent is left holding only ciphertext."},
+ {who:"Agent",ic:"⛔",ac:"var(--red)",tt:"Try early → NOT_YET",n:"STEP 3 · THE MONEY SHOT",line:"A hacked or hasty agent reaches for a locked period. <b>The key doesn't exist yet — for anyone.</b> Nothing to steal, nothing it can even sign.",err:true},
+ {who:"drand beacon",ic:"⏱️",ac:"var(--gold)",tt:"The clock ticks",n:"STEP 4 · UNLOCK",line:"At the scheduled round the public beacon publishes a signature that <b>is</b> the key. Now — and only now — this one period's key exists."},
+ {who:"Hedera · Vault",ic:"⚡",ac:"var(--green)",tt:"Spend within limits",n:"STEP 5 · WITHDRAW",line:"The agent withdraws from the on-chain <b>PeriodVault</b>. The contract checks the time window, the budget, and a per-tx ceiling — a spend over the cap needs a <b>Ledger tap</b>."},
+ {who:"x402 · HCS",ic:"✅",ac:"var(--blue)",tt:"Pay &amp; prove",n:"STEP 6 · SETTLE + AUDIT",line:"A <b>real payment settles on Hedera</b>. A sealed receipt lands on the audit log — openable only with your <b>device-held view key</b>. One period spent, fully provable."},
 ];
 (function(){
   const track=$("wfTrack"); if(!track) return;
-  track.innerHTML=WF.map((s,i)=>`<div class="wf-node${s.err?' notyet':''}" data-i="${i}"><span class="arrow">→</span><span class="ic">${s.ic}</span><span class="who">${s.who}</span><div class="tt">${s.tt}</div></div>`).join("");
+  track.innerHTML=WF.map((s,i)=>`<div class="wf-node${s.err?' notyet':''}" data-i="${i}" style="--ac:${s.ac}"><span class="arrow">→</span><span class="sn">${i+1}</span><span class="ic">${s.ic}</span><span class="who">${s.who}</span><div class="tt">${s.tt}</div></div>`).join("");
   const nodes=[...track.querySelectorAll(".wf-node")];
   const cap=$("wfCap"), live=$("wfLive"), play=$("wfPlay"), replay=$("wfReplay");
   let idx=-1, timer=null, playing=false;

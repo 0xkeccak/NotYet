@@ -221,13 +221,44 @@
   .tracks{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
   .chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:6px 14px;color:var(--ink);background:var(--card)}
   .closing{font-family:var(--serif);font-size:clamp(26px,4vw,40px);line-height:1.1;color:var(--ink);max-width:20ch;letter-spacing:-.01em}
+
+  /* animated walkthrough */
+  .wf-wrap{margin-top:30px}
+  .wf-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+  .wf-live{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:inline-flex;align-items:center;gap:8px}
+  .wf-track{display:flex;gap:13px;flex-wrap:wrap;align-items:stretch}
+  .wf-node{flex:1 1 150px;min-width:148px;background:var(--card);border:1px solid var(--line);border-radius:15px;
+           padding:17px 15px 16px;position:relative;opacity:.55;filter:saturate(.7);
+           transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s,background .3s,opacity .3s,filter .3s}
+  .wf-node .ic{font-size:27px;line-height:1;display:block;margin-bottom:10px}
+  .wf-node .who{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .wf-node .tt{font-weight:600;font-size:15px;margin-top:6px;letter-spacing:-.01em;line-height:1.25}
+  .wf-node .arrow{position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:var(--line2);font-size:16px;z-index:3;background:var(--paper);padding:0 1px}
+  .wf-node:last-child .arrow{display:none}
+  .wf-node.done{opacity:1;filter:none;border-color:rgba(30,154,84,.42);background:linear-gradient(180deg,rgba(30,154,84,.07),transparent)}
+  .wf-node.active{opacity:1;filter:none;border-color:var(--gold);transform:translateY(-5px) scale(1.035);box-shadow:0 24px 48px -26px rgba(244,180,8,.65)}
+  .wf-node.active .ic{animation:wfpop .45s}
+  .wf-node.active .tt{color:var(--gold)}
+  .wf-node.notyet.active{border-color:var(--red);box-shadow:0 24px 48px -24px rgba(208,57,43,.7);animation:wfshake .5s}
+  .wf-node.notyet.active .tt{color:var(--red)}
+  @keyframes wfpop{0%{transform:scale(.55)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+  @keyframes wfshake{0%,100%{transform:translateY(-5px) scale(1.035)}25%{transform:translateY(-5px) scale(1.035) rotate(-1.4deg)}75%{transform:translateY(-5px) scale(1.035) rotate(1.4deg)}}
+  .wf-cap{margin-top:24px;background:var(--ink-panel);border:1px solid #2b271e;border-radius:14px;padding:19px 22px;min-height:104px;transition:border-color .3s}
+  .wf-cap .step-n{font-family:var(--mono);font-size:11px;letter-spacing:.15em;color:var(--yellow-2)}
+  .wf-cap .line{font-size:17px;color:#e9e4d6;margin-top:9px;line-height:1.5}
+  .wf-cap .line b{color:#fff;font-weight:600}
+  .wf-cap.err-cap{border-color:#6a3128}
+  .wf-cap.err-cap .step-n{color:#ff7a6b}
+  .wf-cap.err-cap .line b{color:#ffb3a8}
+  @media(max-width:720px){.wf-node{flex-basis:44%}.wf-node .arrow{display:none}}
+  @media(max-width:620px){.wf-node{flex-basis:100%}.wf-cap .line{font-size:15.5px}}
 </style>
 </head>
 <body>
 <nav><div class="wrap nav">
   <div class="brand"><span class="dot">⏳</span> notyet</div>
   <div class="navlinks">
-    <a href="#how">How</a><a href="#why">Why</a><a href="#demo">Live demo</a><a href="#proof">Proof</a><a href="#sdk">Integrate</a>
+    <a href="#how">How</a><a href="#flow">Flow</a><a href="#why">Why</a><a href="#demo">Live demo</a><a href="#proof">Proof</a><a href="#sdk">Integrate</a>
     <button class="themebtn" id="theme" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
     <a class="btn ghost" href="https://github.com/0xkeccak/NotYet" target="_blank" style="padding:8px 16px">GitHub ↗</a>
   </div>
@@ -311,6 +342,24 @@
 
     <p class="small" style="margin-top:22px">One chain, no bridge: the vault holds the money, the policy the agent must satisfy, <i>and</i> (via HCS) the audit log — there's nothing to bridge. A compromised agent can still spend at most one period's budget, and never a period whose window is closed.</p>
     <p class="lead" style="margin-top:26px"><b>Why not Hedera's native scheduled transactions?</b> A scheduled transaction has to <i>exist</i> ahead of time — created, then held pending until it's signed or its time comes. The authority to spend already exists early; something is holding a live, future-dated transaction. Notyet schedules the opposite way: it locks the <b>key</b>, not the transaction. Until the round arrives there is nothing to hold, nothing to trigger early, and nothing to leak — the withdrawal can't even be signed, because its key doesn't exist yet.</p>
+  </div>
+</section>
+
+<section id="flow">
+  <div class="wrap">
+    <p class="eyebrow">Watch the flow</p>
+    <h2 class="serif">One budget, from your signature to a proven spend.</h2>
+    <p class="lead" style="margin-top:16px">Six steps, a single period. Press play and watch where the key is — and, for most of its life, where it simply <i>isn't yet</i>.</p>
+    <div class="wf-wrap">
+      <div class="wf-controls">
+        <button class="btn amber" id="wfPlay">▶&nbsp; Play the walkthrough</button>
+        <button class="btn ghost" id="wfReplay" style="display:none">↺&nbsp; Replay</button>
+        <span class="wf-live" id="wfLive"></span>
+      </div>
+      <div class="wf-track" id="wfTrack"></div>
+      <div class="wf-cap" id="wfCap"><div class="step-n">READY</div><div class="line">Press <b>Play</b> to follow a single period through its whole life — sign, lock, the <b>NOT_YET</b> moment, unlock, spend within limits, and audit.</div></div>
+    </div>
+    <p class="small" style="margin-top:20px">This is the map. Every step is real in the <a href="#demo">live demo</a> and enforced on-chain — see <a href="#proof">Proof</a>.</p>
   </div>
 </section>
 
@@ -596,6 +645,48 @@ const INC=[
 ];
 $("incidents").innerHTML=INC.map(i=>`<div class="card inc"><div class="row" style="justify-content:space-between"><span class="amt">${i.amt}</span><span class="kicker">${i.d}</span></div>
   <h3 style="margin-top:9px;font-size:16px">${i.t}</h3><p class="lesson">${i.l}</p><p class="src"><a href="${i.u}" target="_blank">${i.s} ↗</a></p></div>`).join("");
+
+// ---- animated walkthrough (the flow, for anyone) ----
+const WF=[
+ {who:"You + Ledger",ic:"🖊️",tt:"Set the rule",n:"STEP 1 · SIGN ONCE",line:"You sign the whole schedule <b>once on your Ledger</b> and walk away. No spend key ever stays with you — or with the agent."},
+ {who:"drand · tlock",ic:"🔒",tt:"Lock to the future",n:"STEP 2 · TIMELOCK",line:"Each period's spend key is <b>encrypted to a future round</b> of a public clock, then wiped. The agent is left holding only ciphertext."},
+ {who:"Agent",ic:"⛔",tt:"Try early → NOT_YET",n:"STEP 3 · THE MONEY SHOT",line:"A hacked or hasty agent reaches for a locked period. <b>The key doesn't exist yet — for anyone.</b> Nothing to steal, nothing it can even sign.",err:true},
+ {who:"drand beacon",ic:"⏱️",tt:"The clock ticks",n:"STEP 4 · UNLOCK",line:"At the scheduled round the public beacon publishes a signature that <b>is</b> the key. Now — and only now — this one period's key exists."},
+ {who:"Hedera · Vault",ic:"⚡",tt:"Spend within limits",n:"STEP 5 · WITHDRAW",line:"The agent withdraws from the on-chain <b>PeriodVault</b>. The contract checks the time window, the budget, and a per-tx ceiling — a spend over the cap needs a <b>Ledger tap</b>."},
+ {who:"x402 · HCS",ic:"✅",tt:"Pay &amp; prove",n:"STEP 6 · SETTLE + AUDIT",line:"A <b>real payment settles on Hedera</b>. A sealed receipt lands on the audit log — openable only with your <b>device-held view key</b>. One period spent, fully provable."},
+];
+(function(){
+  const track=$("wfTrack"); if(!track) return;
+  track.innerHTML=WF.map((s,i)=>`<div class="wf-node${s.err?' notyet':''}" data-i="${i}"><span class="arrow">→</span><span class="ic">${s.ic}</span><span class="who">${s.who}</span><div class="tt">${s.tt}</div></div>`).join("");
+  const nodes=[...track.querySelectorAll(".wf-node")];
+  const cap=$("wfCap"), live=$("wfLive"), play=$("wfPlay"), replay=$("wfReplay");
+  let idx=-1, timer=null, playing=false;
+  function setCap(sn,html,err){cap.classList.toggle("err-cap",!!err);cap.innerHTML=`<div class="step-n">${sn}</div><div class="line">${html}</div>`;}
+  function paint(i){
+    nodes.forEach((n,j)=>{n.classList.toggle("active",j===i);n.classList.toggle("done",j<i);});
+    const s=WF[i]; setCap(s.n,s.line,s.err);
+    live.innerHTML=`<span class="pulse" style="width:7px;height:7px"></span> step ${i+1} / ${WF.length}`;
+  }
+  function finish(){
+    playing=false;clearTimeout(timer);
+    nodes.forEach(n=>{n.classList.add("done");n.classList.remove("active");});
+    play.style.display="none";replay.style.display="inline-flex";
+    live.innerHTML="✓ one period, spent within authority";
+    setCap("DONE",`That's the whole loop. A compromised agent could only ever reach <b>the one period whose key currently exists</b> — never the schedule, never a future budget. <b>Tuesday's key doesn't exist until Tuesday.</b>`,false);
+  }
+  function step(){
+    idx++;
+    if(idx>=WF.length){finish();return;}
+    paint(idx);
+    timer=setTimeout(step,WF[idx].err?3400:2400);
+  }
+  play.onclick=()=>{
+    if(playing){playing=false;clearTimeout(timer);play.innerHTML="▶&nbsp; Resume";live.textContent="";return;}
+    if(idx<0||idx>=WF.length-1){idx=-1;replay.style.display="none";}
+    playing=true;play.innerHTML="⏸&nbsp; Pause";step();
+  };
+  replay.onclick=()=>{replay.style.display="none";play.style.display="inline-flex";idx=-1;playing=true;play.innerHTML="⏸&nbsp; Pause";step();};
+})();
 
 // ---- live demo ----
 $("issue").onclick=async()=>{

@@ -29,8 +29,8 @@ const SERVICE_URL = process.env.SERVICE_URL ?? `http://localhost:${PORT}/price`;
 const payerId = process.env.HEDERA_PAYER_ID!;
 const payerKey = process.env.HEDERA_PAYER_KEY!;
 
-// Light global cooldown on issue so a public URL can't drain the faucet-funded payer.
-let lastIssueMs = 0;
+// Per-session cooldown on issue so a public URL can't drain the faucet-funded payer,
+// while two people demoing at once don't trip each other's limiter.
 const ISSUE_COOLDOWN_MS = Number(process.env.ISSUE_COOLDOWN_MS ?? 60_000);
 
 // Vault-backed money path (the shipped architecture): if a persistent PeriodVault + agent
@@ -59,12 +59,7 @@ interface PeriodState {
   spent: bigint; // tinybar withdrawn so far this period (vault mode)
   paid?: { tx: string; hashscan?: string; data: unknown };
 }
-const state: { topicId?: string; vaultId?: string; periodSec: number; masterView?: Buffer; periods: PeriodState[] } = {
-  periodSec: 15, // short by default so the whole cycle plays in under a minute (demo/video)
-  periods: [],
-};
-
-// A single active scheduled transfer (HIP-423 "sign-on-unlock" mode). Demo-scale, in-memory.
+// A scheduled transfer (HIP-423 "sign-on-unlock" mode). Demo-scale, in-memory.
 interface SchedState {
   scheduleId: string;
   scheduledTxId: string;
@@ -75,8 +70,30 @@ interface SchedState {
   tinybars: number;
   executed?: { tx: string; hashscan: string };
 }
-let sched: SchedState | undefined;
-let lastSchedMs = 0;
+
+// Per-browser demo state, keyed by a client-generated session id, so concurrent judges
+// don't clobber each other's schedule (or trip each other's cooldown). In-memory only —
+// schedules reset on redeploy; the on-chain vault + HCS artifacts persist regardless.
+interface Session {
+  topicId?: string; vaultId?: string; periodSec: number; masterView?: Buffer; periods: PeriodState[];
+  lastIssueMs: number; sched?: SchedState; lastSchedMs: number; lastSeenMs: number;
+}
+const sessions = new Map<string, Session>();
+const SESSION_TTL_MS = 30 * 60_000;
+function sidOf(req: Request): string {
+  const s = (req.body?.sid ?? req.query?.sid);
+  return typeof s === "string" && s ? s.slice(0, 64) : "default";
+}
+function getSession(req: Request): Session {
+  const sid = sidOf(req);
+  let s = sessions.get(sid);
+  if (!s) { s = { periodSec: 15, periods: [], lastIssueMs: 0, lastSchedMs: 0, lastSeenMs: Date.now() }; sessions.set(sid, s); }
+  s.lastSeenMs = Date.now();
+  if (sessions.size > 50) { const cut = Date.now() - SESSION_TTL_MS; for (const [k, v] of sessions) if (v.lastSeenMs < cut) sessions.delete(k); }
+  return s;
+}
+// monotonic vault index so committed periods never collide across concurrent issues
+let vaultSeq = Math.floor(Date.now() / 1000);
 
 const app = express();
 app.use(express.json());
@@ -87,30 +104,29 @@ app.use(express.static(new URL("./public", import.meta.url).pathname));
 mountX402(app);
 
 app.post("/api/issue", async (req: Request, res: Response) => {
-  const wait = lastIssueMs + ISSUE_COOLDOWN_MS - Date.now();
+  const sess = getSession(req);
+  const wait = sess.lastIssueMs + ISSUE_COOLDOWN_MS - Date.now();
   if (wait > 0) return res.status(429).json({ error: `cooling down — try again in ${Math.ceil(wait / 1000)}s` });
-  lastIssueMs = Date.now();
+  sess.lastIssueMs = Date.now();
   try {
     const count = Math.min(Number(req.body?.count ?? 3), 5);
-    state.periodSec = Math.max(8, Math.min(120, Number(req.body?.periodSec ?? 15)));
+    sess.periodSec = Math.max(8, Math.min(120, Number(req.body?.periodSec ?? 15)));
     const c = client();
     const topicId = await createTopic(c, "notyet-dash");
     const master = newMasterViewSecret();
     const now = Date.now();
-    // monotonic base so committed indices never collide across issues on the persistent vault
-    const base = Math.floor(now / 1000);
     const periods: PeriodState[] = [];
     for (let i = 0; i < count; i++) {
       // first period unlocks in ~8s, each next one staggers by the cadence (so a short
       // demo cadence like 8s plays out as 8s / 16s / 24s — clean for the video)
-      const round = roundForTime(now + 8_000 + i * state.periodSec * 1000);
+      const round = roundForTime(now + 8_000 + i * sess.periodSec * 1000);
       const unlockMs = roundUnlockMs(round);
       if (VAULT_MODE) {
         // no per-period account: generate the key, commit its ADDRESS + policy to the vault,
         // timelock the key, post the ciphertext to HCS. The vault is the budget authority.
         const k = generatePrivateKey(); // 0x-prefixed ECDSA key
         const ciphertext = await encryptToRound(k.slice(2), round);
-        const vaultIndex = base + i;
+        const vaultIndex = vaultSeq++; // globally unique — no collision across concurrent sessions
         const start = Math.floor(unlockMs / 1000) - 5; // window opens ~at the round
         await commitPeriod(c, VAULT_ID!, {
           i: vaultIndex, signerEvm: evmAddressOf(k), budgetTinybar: PERIOD_BUDGET,
@@ -125,27 +141,28 @@ app.post("/api/issue", async (req: Request, res: Response) => {
       }
     }
     c.close();
-    state.topicId = topicId;
-    state.vaultId = VAULT_MODE ? VAULT_ID : undefined;
-    state.masterView = master;
-    state.periods = periods;
-    res.json({ topicId, vaultId: state.vaultId, mode: VAULT_MODE ? "vault" : "accounts", count, periods: periods.map(({ ciphertext, spent, ...p }) => p) });
+    sess.topicId = topicId;
+    sess.vaultId = VAULT_MODE ? VAULT_ID : undefined;
+    sess.masterView = master;
+    sess.periods = periods;
+    res.json({ topicId, vaultId: sess.vaultId, mode: VAULT_MODE ? "vault" : "accounts", count, periods: periods.map(({ ciphertext, spent, ...p }) => p) });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.get("/api/status", (_req: Request, res: Response) => {
+app.get("/api/status", (req: Request, res: Response) => {
+  const sess = getSession(req);
   const now = Date.now();
   res.json({
-    topicId: state.topicId,
-    vaultId: state.vaultId,
-    mode: state.vaultId ? "vault" : "accounts",
-    periods: state.periods.map((p) => {
+    topicId: sess.topicId,
+    vaultId: sess.vaultId,
+    mode: sess.vaultId ? "vault" : "accounts",
+    periods: sess.periods.map((p) => {
       // in vault mode the on-chain artifact is the vault contract + committed period index
-      const label = state.vaultId ? `${state.vaultId} · #${p.vaultIndex}` : p.accountId;
-      const link = state.vaultId
-        ? `https://hashscan.io/testnet/contract/${state.vaultId}`
+      const label = sess.vaultId ? `${sess.vaultId} · #${p.vaultIndex}` : p.accountId;
+      const link = sess.vaultId
+        ? `https://hashscan.io/testnet/contract/${sess.vaultId}`
         : `https://hashscan.io/testnet/account/${p.accountId}`;
       return {
         index: p.index,
@@ -161,7 +178,8 @@ app.get("/api/status", (_req: Request, res: Response) => {
 });
 
 app.post("/api/pay", async (req: Request, res: Response) => {
-  const p = state.periods.find((x) => x.index === Number(req.body?.index));
+  const sess = getSession(req);
+  const p = sess.periods.find((x) => x.index === Number(req.body?.index));
   if (!p) return res.status(404).json({ error: "no such period" });
   try {
     // decrypt the period key — throws NOT_YET before its drand round (the money shot)
@@ -185,9 +203,9 @@ app.post("/api/pay", async (req: Request, res: Response) => {
       payer = { accountId: p.accountId!, privateKey: key }; // fallback: pay straight from the period account
     }
     const result = await payX402(SERVICE_URL, payer);
-    if (result.paid && state.topicId && state.masterView) {
+    if (result.paid && sess.topicId && sess.masterView) {
       const receipt: Receipt = { periodIndex: p.index, service: "price", amount: "100000", timestampMs: Date.now(), resultHash: "demo" };
-      await submitMessage(client(), state.topicId, encryptReceipt(receipt, deriveViewKey(state.masterView, p.index)));
+      await submitMessage(client(), sess.topicId, encryptReceipt(receipt, deriveViewKey(sess.masterView, p.index)));
       p.paid = { tx: result.settlement!, hashscan: result.hashscan, data: result.data };
     }
     res.json({ paid: result.paid, withdraw: withdrawHashscan, ...p.paid });
@@ -197,11 +215,12 @@ app.post("/api/pay", async (req: Request, res: Response) => {
 });
 
 app.post("/api/audit", async (req: Request, res: Response) => {
-  if (!state.topicId || !state.masterView) return res.status(400).json({ error: "no active schedule" });
+  const sess = getSession(req);
+  if (!sess.topicId || !sess.masterView) return res.status(400).json({ error: "no active schedule" });
   const index = Number(req.body?.index);
   try {
-    const viewKey = deriveViewKey(state.masterView, index);
-    const msgs = await readMessages(state.topicId);
+    const viewKey = deriveViewKey(sess.masterView, index);
+    const msgs = await readMessages(sess.topicId);
     const decrypted: Receipt[] = [];
     let othersTried = 0;
     let othersFailed = 0;
@@ -215,7 +234,7 @@ app.post("/api/audit", async (req: Request, res: Response) => {
     // demonstrate scoping: try decrypting with a neighbor key, expect failure
     for (const m of msgs) {
       try {
-        decryptReceipt(m.contents, deriveViewKey(state.masterView, index + 1));
+        decryptReceipt(m.contents, deriveViewKey(sess.masterView, index + 1));
         othersTried++;
       } catch {
         othersTried++;
@@ -261,9 +280,10 @@ app.get("/api/recent", async (_req: Request, res: Response) => {
 // It's public and inert on-chain. At the round the agent decrypts the key and signs;
 // only then does it execute. Nobody ever holds the key early — that's the whole point.
 app.post("/api/schedule", async (req: Request, res: Response) => {
-  const wait = lastSchedMs + ISSUE_COOLDOWN_MS - Date.now();
+  const sess = getSession(req);
+  const wait = sess.lastSchedMs + ISSUE_COOLDOWN_MS - Date.now();
   if (wait > 0) return res.status(429).json({ error: `cooling down — try again in ${Math.ceil(wait / 1000)}s` });
-  lastSchedMs = Date.now();
+  sess.lastSchedMs = Date.now();
   try {
     const seconds = Math.max(8, Math.min(300, Number(req.body?.seconds ?? 10)));
     const amtHbar = Math.max(0.01, Math.min(0.1, Number(req.body?.amount ?? 0.02)));
@@ -279,7 +299,7 @@ app.post("/api/schedule", async (req: Request, res: Response) => {
       expirationSec: seconds + 300, // generous deadline so the unlocked key can still sign
     });
     c.close();
-    sched = { scheduleId, scheduledTxId, round, unlockMs: roundUnlockMs(round), accountId: p.accountId, ciphertext: p.ciphertext, tinybars };
+    sess.sched = { scheduleId, scheduledTxId, round, unlockMs: roundUnlockMs(round), accountId: p.accountId, ciphertext: p.ciphertext, tinybars };
     res.json({
       scheduleId,
       accountId: p.accountId,
@@ -294,7 +314,9 @@ app.post("/api/schedule", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/schedule/status", async (_req: Request, res: Response) => {
+app.get("/api/schedule/status", async (req: Request, res: Response) => {
+  const sess = getSession(req);
+  const sched = sess.sched;
   if (!sched) return res.json({ none: true });
   const now = Date.now();
   if (!sched.executed) {
@@ -314,7 +336,9 @@ app.get("/api/schedule/status", async (_req: Request, res: Response) => {
   });
 });
 
-app.post("/api/schedule/execute", async (_req: Request, res: Response) => {
+app.post("/api/schedule/execute", async (req: Request, res: Response) => {
+  const sess = getSession(req);
+  const sched = sess.sched;
   if (!sched) return res.status(404).json({ error: "no scheduled transfer" });
   if (sched.executed) return res.json({ executed: true, ...sched.executed });
   try {

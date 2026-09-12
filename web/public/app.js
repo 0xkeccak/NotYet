@@ -1,5 +1,11 @@
 const $=(id)=>document.getElementById(id);
-const api=(p,b)=>fetch(p,b?{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)}:{}).then(r=>r.json());
+// per-browser session id so two people demoing at once keep separate schedules + cooldowns
+let SID; try{SID=(localStorage.getItem("notyet-sid"))||(crypto.randomUUID());localStorage.setItem("notyet-sid",SID);}catch(e){SID="s"+Date.now()+Math.random().toString(36).slice(2);}
+const api=(p,b)=>{
+  const url=b?p:(p+(p.includes("?")?"&":"?")+"sid="+encodeURIComponent(SID));
+  const opts=b?{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...b,sid:SID})}:{};
+  return fetch(url,opts).then(r=>r.json());
+};
 
 // copy buttons on every code block
 document.querySelectorAll(".term").forEach((t)=>{

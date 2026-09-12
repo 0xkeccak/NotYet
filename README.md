@@ -59,10 +59,32 @@ the issue / spend / audit flows.
 - **Ledger issuer (Device Management Kit on Speculos):** address `0xDad77910DbDFdE764fC21FCD4E74D71bBACA6D8D` — signs the schedule, is the vault's on-chain `approver` for over-cap withdrawals (`npm run gate:vault:ledger`, 3/3 on testnet), and reconstructs the per-period audit view keys on a device tap.
 - **Bazantic / MCP:** `bazantic/mcp-server.ts` exposes `notyet_status` + `notyet_pay` so
   any agent can pay through Notyet (`npm run mcp`).
-- **Hedera:** period accounts funded per-period; x402 settled through the Blocky402
-  testnet facilitator (`api.testnet.blocky402.com`, keyless), the facilitator sponsors
-  the fee. Example settlement:
+- **Hedera:** the **PeriodVault** holds the treasury and gates each withdrawal on-chain;
+  x402 settled through the Blocky402 testnet facilitator (`api.testnet.blocky402.com`,
+  keyless), the facilitator sponsors the fee. Example settlement:
   `https://hashscan.io/testnet/transaction/0.0.7162784@1788970917.201111289`
+
+## What the hosted demo shows vs. the full demo
+
+The hosted site (Railway) has **no hardware/Speculos**, so the two Ledger authorities that
+need a device run in `full-demo.ts` — that's what the demo video is recorded from. Everything
+else is identical; only *who holds the key* differs.
+
+| Capability | Hosted (`notyet.up.railway.app`) | Full demo (`npm run demo`) |
+|---|---|---|
+| Timelock unlock → `NOT_YET` → x402 settle | ✅ live | ✅ |
+| **PeriodVault** money path (unlock → `withdraw` → x402) | ✅ vault mode¹ | ✅ |
+| On-chain policy (window · budget · `perTxMax`) | ✅ enforced | ✅ |
+| Schedule signed on Ledger (trust anchor) | ✅ (issuer addr verified) | ✅ signed on Speculos |
+| Over-`perTxMax` **on-device co-sign** | ⚠️ stays under ceiling² | ✅ halts for a Ledger tap |
+| **Device-born** audit keys (sealed receipts) | ⚠️ server-side view key² | ✅ reconstructed from a Ledger tap |
+| MCP (`notyet_pay`) drives the vault path | ✅ | ✅ |
+
+¹ Vault mode needs `DEMO_VAULT_ID/EVM` + `DEMO_AGENT_ID/KEY` set (see `.env.example`; run
+`scripts/setup-vault-demo.ts`). Without them the dashboard falls back to per-period accounts.
+Hit `POST /api/issue` and check `"mode": "vault"`. ² Railway has no Speculos, so the hosted
+demo derives the audit key server-side and keeps spends under the ceiling; the device-only
+paths are proven in `full-demo.ts` and `npm run gate:vault:ledger`.
 
 ## Quickstart
 

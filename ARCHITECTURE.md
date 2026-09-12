@@ -128,8 +128,11 @@ Owner now holds nothing usable. Walk away.
 Two implementations, same scoping property:
 
 - **Device-born (the `npm run demo` path).** Each period's view keypair is derived from a
-  Ledger signature over `notyet:view:<i>` — deterministic (RFC 6979), so the same tap always
-  yields the same key, but the secret **never touches disk**. Only the *public* half is
+  Ledger signature over `notyet:view:<i>`. The Ledger Ethereum app signs with a **deterministic
+  nonce (RFC 6979)** — signing the same message on the same key always produces the *same*
+  signature — so re-tapping later reconstructs the **identical** keypair; the key is stable per
+  period, not random per tap. The secret is HKDF'd from that signature and **never touches
+  disk** (nothing is stored; it's regenerated on demand). Only the *public* half is
   published; the agent **seals** each receipt to it (`sealReceipt`, ephemeral-X25519 box) and
   can never reopen it. Opening period *i*'s books is one on-device tap
   (`ledgerViewKeyPair(i)` → `openSealedReceipt`), scoped to that period alone.

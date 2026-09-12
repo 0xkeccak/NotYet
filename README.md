@@ -255,9 +255,14 @@ above, not the MCP.
   and holds the per-period audit view keys (receipts the agent seals but cannot reopen — only
   a device tap does). The agent never holds any of them. *Remove it → no trusted signer, no
   human ceiling on big spends, and the books have no key-holder.*
-- **Bazantic — Agentify a New API.** The capability is an MCP server (`notyet_status`,
-  `notyet_pay`) so other agents pay through Notyet — A2A payments that inherit the timelock's
-  one-period blast radius. *Remove it → the capability isn't reachable by other agents.*
+- **Bazantic — Agentify a New API.** Bazantic username **`0xkeccak`**. NotYet is published as
+  a Bazantic **gateway** (auto-generated from `web/public/openapi.json`) plus an MCP server
+  (`notyet_explain` · `notyet_status` · `notyet_verify` · `notyet_spend`), so other agents pay
+  through Notyet — A2A payments that inherit the timelock's one-period blast radius. The
+  published **recipe** chains three services in one flow — **drand** (is the round published
+  yet?), **NotYet** (unlock + pay within the vault), and the **Hedera Mirror Node** (independent
+  settlement confirmation) — see `bazantic/recipe.md`. *Remove it → the capability isn't
+  reachable by other agents.*
 
 > Root of trust moved from ENS to Hedera/HCS to keep the critical path single-chain. The
 > ENS integration (human-readable identity + ENSIP-25/26 agent records) is preserved on the

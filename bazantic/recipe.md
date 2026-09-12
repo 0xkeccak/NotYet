@@ -5,8 +5,9 @@ Two eligible surfaces from one capability:
 - **Agentify a new API** — NotYet is wrapped as an agent-callable **gateway** on Bazantic,
   auto-generated from `web/public/openapi.json`. Any agent can call it over the hosted MCP
   endpoint with zero setup.
-- **Recipe** — a published, reusable Bazantic Recipe that chains the gateway's tools into one
-  "adopt time-gated spend authority" flow.
+- **Recipe** — a published, reusable Bazantic Recipe that chains **two live gateways** into one
+  "adopt time-gated spend authority" flow: NotYet (issue → unlock → pay) plus the **Hedera
+  Mirror Node** for independent settlement confirmation. Bazantic username: **`0xkeccak`**.
 
 ## Published Recipe
 
@@ -27,14 +28,20 @@ config server-side. Inputs are only:
 | `periodSec` | optional | 15 | seconds between period unlocks (8–120) |
 | `index` | required | — | the period index to unlock and pay |
 
-**Tools it calls** (the keyless gateway tools, generated from the OpenAPI spec):
+**Two services in one flow.** The recipe binds **two live Bazantic gateways** — the NotYet
+gateway (the agentified capability) and the **Hedera Mirror Node Testnet** gateway (a sponsor
+API) — so it satisfies both "Agentify a new API" (project gateway + the new service) and "Best
+recipe with sponsor APIs" (≥1 other service).
 
-| Tool | Does |
-|---|---|
-| `issueSchedule` | Create a schedule of `count` periods; each period's spend key is committed on-chain, then tlock-encrypted to a future round. |
-| `getStatus` | List the schedule's periods and whether each is `locked` / `ready` / `paid`. |
-| `unlockAndPay` | Unlock period `index` (returns **NOT_YET** before its drand round), withdraw from the on-chain PeriodVault, settle the x402 payment. |
-| `getPrice` | The x402-gated service being paid (402 challenge until settled). |
+**Tools it calls:**
+
+| Gateway | Tool | Does |
+|---|---|---|
+| NotYet | `issueSchedule` | Create a schedule of `count` periods; each period's spend key is committed on-chain, then tlock-encrypted to a future round. |
+| NotYet | `getStatus` | List the schedule's periods and whether each is `locked` / `ready` / `paid`. |
+| NotYet | `unlockAndPay` | Unlock period `index` (returns **NOT_YET** before its drand round), withdraw from the on-chain PeriodVault, settle the x402 payment. |
+| NotYet | `getPrice` | The x402-gated service being paid (402 challenge until settled). |
+| Hedera Mirror | `getTransaction` | Independently confirm the settlement reached consensus — reads the public Hedera Mirror Node, a source the paying agent doesn't control. Final step. |
 
 If `unlockAndPay` returns `notYet:true`, the correct behavior is to **wait for the period's
 round and retry** — never to look for another key. That property is stated in the tool

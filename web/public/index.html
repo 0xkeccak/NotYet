@@ -235,10 +235,14 @@
         <p class="small" style="margin:0">One on-device tap signs the whole plan — the trust anchor. Tamper with the rules and the agent refuses to act.</p></div>
       <div class="card"><span class="badge b-violet">2 · Co-signs</span>
         <h3 style="margin:10px 0 6px">Over-cap spends</h3>
-        <p class="small" style="margin:0">Small spends are autonomous; anything over the per-tx ceiling reverts on-chain until the device approves. <span class="mono">gate:vault:ledger</span> — 3/3.</p></div>
+        <p class="small" style="margin:0">Small spends are autonomous; anything over the per-tx ceiling reverts on-chain until the device approves. <span class="mono">gate:vault:ledger</span> — 3/3.</p>
+        <img class="dev-shot" src="/dev-overcap.png" alt="Ledger device screen: sign message notyet:approve withdraw over per-tx cap" loading="lazy" />
+        <span class="dev-cap">real device prompt · Ledger (Speculos)</span></div>
       <div class="card"><span class="badge b-violet">3 · Holds</span>
         <h3 style="margin:10px 0 6px">The audit keys</h3>
-        <p class="small" style="margin:0">The agent seals receipts to a key it can never reopen. Only a device tap reconstructs it to open one period's books.</p></div>
+        <p class="small" style="margin:0">The agent seals receipts to a key it can never reopen. Only a device tap reconstructs it to open one period's books.</p>
+        <img class="dev-shot" src="/dev-viewkey.png" alt="Ledger device screen: sign message notyet:view:0" loading="lazy" />
+        <span class="dev-cap">real device prompt · Ledger (Speculos)</span></div>
     </div>
 
     <div class="grid g3" style="margin-top:18px">

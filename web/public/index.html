@@ -159,12 +159,33 @@
 
     <div class="card" style="margin-top:36px">
       <div class="head">
-        <div><b>Or step through it yourself</b> <span class="small">— issue a schedule, try a locked period, then unlock &amp; pay, one at a time</span></div>
-        <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
+        <div><b>Or explore by use case</b> <span class="small">— a real budget an agent could run, then issue it yourself</span></div>
+        <div class="scene-select"><span class="small">Use case</span><select id="scenario" aria-label="Pick a use case"></select></div>
       </div>
       <div class="body">
+        <div class="story" id="scenarioStory"></div>
+        <div class="row" style="margin-top:14px">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
         <div id="issueOut" class="out" style="display:none"></div>
-        <div id="timeline" style="margin-top:12px"><p class="small">No schedule yet — click Issue, then try a locked period.</p></div>
+        <div id="timeline" style="margin-top:12px"><p class="small">No schedule yet — pick a use case, then click Issue and try a locked period.</p></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="head">
+        <div><b>How it compares to a plain scheduled transfer</b> <span class="small">— the primitive NotYet builds on, and hardens</span></div>
+        <span class="tag">HIP-423 · hardened</span>
+      </div>
+      <div class="body">
+        <p class="small" style="margin:0 0 12px">A Hedera scheduled transaction (HIP-423) is posted <b>pending</b> and fires on time — a solid primitive. But it sits ready and only waits on the clock. <b>NotYet adds the missing lock:</b> it timelocks the <b>key</b> the transfer needs, so nothing can fire early. Post one below, then try to execute it before its round — it can't.</p>
+        <div class="row">
+          <span class="small">execute in</span>
+          <select id="schedWhen" aria-label="When to execute"><option value="10">10 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option></select>
+          <span class="small">send</span>
+          <input id="schedAmt" type="number" value="0.02" step="0.01" min="0.01" max="0.1" aria-label="Amount in HBAR"/>
+          <span class="small">ℏ → merchant</span>
+          <button class="btn amber" id="schedCreate">Schedule it</button>
+        </div>
+        <div id="schedOut" class="out" style="display:none"></div>
       </div>
     </div>
 

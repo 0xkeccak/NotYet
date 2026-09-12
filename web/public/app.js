@@ -178,9 +178,76 @@ $("audit").onclick=async()=>{
   $("auditOut").textContent=`period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n`+r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n")+`\n\nscoped: ${r.scopedProof}`;
 };
 
-// demo defaults (the scenario picker / AI-plan / HIP-423 panel were removed to keep it simple)
-const demoCadence="period", demoPeriodSec=15;
-const cadTitle=()=>"Period";
+// ---- use-case scenarios (pick one → configures the stepper below) ----
+let demoCadence="period", demoPeriodSec=8;
+const SCENARIOS=[
+ {label:"⚡ Quick demo (unlocks in seconds)", actor:"Owner → agent · compressed so you can watch it live",
+  count:3, cadence:"period", periodSec:8,
+  story:"The owner wants the agent to pay <b>next week</b> — but won't hand it the key today. So they seal a key for each period to a future moment and walk away. <b>Here the clock is sped up</b> — a “week” becomes <b>~8 seconds</b> — so you can watch a period sit <b>locked → NOT_YET</b>, then unlock and pay on its round in real time. Hit <b>Issue schedule</b> below."},
+ {label:"You → AI assistant · weekly subscription", actor:"You → AI assistant",
+  count:4, cadence:"week", periodSec:15,
+  story:"Your assistant pays $5/week for a data subscription. You sign the whole month <b>once</b> on your Ledger and walk away — you never hand it your wallet. Hacked this week? It can touch <b>this week's $5 only</b> — next week's key doesn't exist yet."},
+ {label:"DAO / fund → trading bot · daily budget", actor:"DAO / fund → trading bot",
+  count:5, cadence:"day", periodSec:12,
+  story:"A DAO funds a trading bot with a <b>daily allowance it can't front-run</b>. Compromised on day 3 → it loses one day, not the treasury."},
+ {label:"Company → procurement agent · monthly", actor:"Finance → procurement agent",
+  count:3, cadence:"month", periodSec:15,
+  story:"Finance <b>pre-signs the quarter</b> on a Ledger and leaves. No standing key sits on a server for anyone to steal or subpoena — each month's authority appears on schedule."},
+ {label:"Research fleet → paid APIs · per shift", actor:"Research fleet → paid APIs",
+  count:5, cadence:"shift", periodSec:12,
+  story:"Each shift gets its own x402 key that <b>dies at shift end</b>. A leaked key is worthless afterwards, and every call is logged to HCS for audit."},
+];
+$("scenario").innerHTML=SCENARIOS.map((s,i)=>`<option value="${i}">${s.label}</option>`).join("");
+function applyScenario(i){const s=SCENARIOS[i];
+  $("scenarioStory").innerHTML=`<span class="actor">${s.actor}</span>${s.story}`;
+  $("count").value=s.count; demoCadence=s.cadence; demoPeriodSec=s.periodSec;}
+$("scenario").onchange=()=>applyScenario(Number($("scenario").value));
+applyScenario(0);
+const cadTitle=()=>demoCadence.charAt(0).toUpperCase()+demoCadence.slice(1);
+
+// ---- scheduled transfer (HIP-423, sign-on-unlock) — the primitive NotYet hardens ----
+let schedPoll=null;
+function renderSched(s){
+  const out=$("schedOut"); out.style.display="block";
+  if(s.error){out.innerHTML='<span class="err">'+s.error+'</span>';return;}
+  const acct=`<a class="small mono" href="${s.hashscanAccount}" target="_blank">${s.accountId}</a>`;
+  const schedLink=`<a class="small mono" href="${s.hashscanSchedule}" target="_blank">schedule ${s.scheduleId} ↗</a>`;
+  if(s.state==="executed"){
+    out.innerHTML=`<span class="c-green">✓ executed — ${s.amount} ℏ sent to the merchant on Hedera.</span>\nThe signature came from a key that did not exist when this transfer was scheduled.\n${schedLink}${s.executed?` · <a class="small" href="${s.executed.hashscan}" target="_blank">settlement ↗</a>`:""}`;
+    return;
+  }
+  if(s.state==="ready"){
+    out.innerHTML=`<span class="c-amber">round reached — the key now exists.</span> The pending transfer of ${s.amount} ℏ can be signed.\n${schedLink} · ${acct}\n<button class="btn amber" id="schedExec" style="margin-top:8px;padding:8px 16px">Execute now</button>`;
+    $("schedExec").onclick=schedExecute; return;
+  }
+  out.innerHTML=`<span class="c-amber">pending on Hedera — inert.</span> The ${s.amount} ℏ transfer is posted, but the key that must sign it <b>does not exist yet</b> (unlocks in ${s.secondsToUnlock}s).\n${schedLink} · ${acct}\n<button class="btn ghost" id="schedExec" style="margin-top:8px;padding:8px 16px">Try to execute early</button>`;
+  $("schedExec").onclick=schedExecute;
+}
+async function schedRefresh(){
+  const s=await api("/api/schedule/status");
+  if(s.none)return;
+  renderSched(s);
+  if(s.state==="executed"&&schedPoll){clearInterval(schedPoll);schedPoll=null;}
+}
+async function schedExecute(){
+  const b=$("schedExec"); if(b){b.disabled=true;b.textContent="signing…";}
+  const r=await api("/api/schedule/execute",{});
+  if(r.executed){await schedRefresh();}
+  else{$("schedOut").innerHTML='<span class="err">'+(r.error||"execution failed")+'</span>'+(r.notYet?"\nThat’s the point — come back when the round arrives and it signs itself in.":"");}
+}
+$("schedCreate").onclick=async()=>{
+  const btn=$("schedCreate");btn.disabled=true;btn.textContent="Scheduling…";
+  $("schedOut").style.display="block";$("schedOut").textContent="creating a funded account, timelocking its key, posting the pending scheduled transfer to Hedera…";
+  try{
+    const r=await api("/api/schedule",{seconds:Number($("schedWhen").value),amount:Number($("schedAmt").value)});
+    if(r.error)throw new Error(r.error);
+    renderSched({...r,state:"locked",executed:null});
+    if(schedPoll)clearInterval(schedPoll);
+    schedPoll=setInterval(schedRefresh,2000);
+  }catch(e){$("schedOut").innerHTML='<span class="err">'+e.message+'</span>';}
+  btn.disabled=false;btn.textContent="Schedule it";
+};
+schedRefresh(); // pick up an already-scheduled transfer on load
 
 // ---- recent settlements (real, from the merchant account on Hedera) ----
 function timeAgo(ms){const s=Math.max(0,(Date.now()-ms)/1000);

@@ -172,9 +172,11 @@ funds + pays the service), and the disposable **period keys** `k_i` (timelocked 
 
 **Owner — deploy a vault and schedule a period (once):**
 ```ts
+// npm i @keccak002/notyet
 import { deployVault, deposit, commitPeriod, evmAddressOf,
          encryptToRound, roundForTime, roundUnlockMs,
-         signScheduleWithLedger, publishSchedule, submitMessage, createTopic } from "notyet";
+         signSchedule, publishSchedule, submitMessage, createTopic } from "@keccak002/notyet";
+// on-device signing (signScheduleWithLedger) ships in the repo — it needs the Ledger DMK
 import { generatePrivateKey } from "viem/accounts";
 
 const { contractId, contractEvm } = await deployVault(client, { agentEvm, approverEvm, initialTinybar: 0 });
@@ -189,14 +191,14 @@ const ciphertext = await encryptToRound(k.slice(2), round);          // tlock k,
 
 const topic = await createTopic(client, "my-agent");
 await submitMessage(client, topic, JSON.stringify({ index: 0, round, ciphertext }));
-const signed = await signScheduleWithLedger(schedule);               // ← Ledger: one on-device tap
+const signed = await signSchedule(schedule, issuerKey);              // ← or signScheduleWithLedger (repo): one on-device tap
 await publishSchedule(client, topic, signed);                        // trust anchor → HCS
 ```
 
 **Agent — spend period 0, only after it unlocks itself:**
 ```ts
 import { resolveSchedule, decryptCiphertext, signWithdraw, withdraw,
-         payX402, HEDERA_TESTNET_CHAINID } from "notyet";
+         payX402, HEDERA_TESTNET_CHAINID } from "@keccak002/notyet";
 
 await resolveSchedule(topic, issuerAddress);                         // verify Ledger sig, or refuse
 const k = (await decryptCiphertext(ciphertext)).toString("utf8");    // throws NOT_YET before the round

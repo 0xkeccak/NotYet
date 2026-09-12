@@ -1,21 +1,48 @@
 {
-  "name": "notyet",
-  "version": "0.0.1",
-  "private": true,
+  "name": "@keccak002/notyet",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Scheduled agent spend authority where the key doesn't exist until its time.",
+  "description": "Scheduled agent spend authority where the key doesn't exist until its time. Timelock-encrypted (drand/tlock) per-period spend keys, settled via x402 on Hedera, gated on-chain by a PeriodVault.",
   "license": "MIT",
+  "author": "0xkeccak",
+  "homepage": "https://notyet.up.railway.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xkeccak/NotYet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xkeccak/NotYet/issues"
+  },
+  "keywords": [
+    "agent",
+    "payments",
+    "x402",
+    "timelock",
+    "drand",
+    "tlock",
+    "hedera",
+    "spend-authority",
+    "ai-agents"
+  ],
   "engines": {
     "node": ">=22"
   },
-  "main": "sdk/index.ts",
+  "main": "./dist/sdk/public.js",
+  "types": "./dist/sdk/public.d.ts",
   "exports": {
-    ".": "./sdk/index.ts",
-    "./agent/resolve": "./agent/resolve.ts",
-    "./sdk/tlock": "./sdk/tlock.ts",
-    "./sdk/pay": "./sdk/pay.ts"
+    ".": {
+      "types": "./dist/sdk/public.d.ts",
+      "import": "./dist/sdk/public.js"
+    }
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LIMITS.md"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && node -e \"const fs=require('fs');fs.mkdirSync('dist/contracts',{recursive:true});fs.copyFileSync('contracts/PeriodVault.json','dist/contracts/PeriodVault.json')\"",
+    "prepublishOnly": "npm run build",
     "start": "tsx start.ts",
     "service": "tsx service/server.ts",
     "web": "tsx web/server.ts",
@@ -29,27 +56,28 @@
     "id": "tsx scripts/hcs-14-id.ts",
     "typecheck": "tsc --noEmit"
   },
-  "devDependencies": {
-    "@types/express": "^5.0.6",
-    "solc": "^0.8.37",
-    "typescript": "^5.7.2"
-  },
   "dependencies": {
+    "@hiero-ledger/sdk": "^2.85.0",
+    "@x402/core": "^2.25.0",
+    "@x402/hedera": "^2.25.0",
+    "tlock-js": "^0.9.0",
+    "tweetnacl": "^1.0.3",
+    "viem": "^2.56.3"
+  },
+  "devDependencies": {
     "@ledgerhq/device-management-kit": "^1.9.0",
     "@ledgerhq/device-signer-kit-ethereum": "^1.18.0",
     "@ledgerhq/device-transport-kit-speculos": "^1.2.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@x402/core": "^2.25.0",
+    "@types/express": "^5.0.6",
     "@x402/express": "^2.25.0",
-    "@x402/hedera": "^2.25.0",
     "dotenv": "^17.4.2",
     "drand-client": "^1.4.2",
     "express": "^5.2.1",
     "rxjs": "^7.8.2",
-    "tlock-js": "^0.9.0",
+    "solc": "^0.8.37",
     "tsx": "^4.19.2",
-    "tweetnacl": "^1.0.3",
-    "viem": "^2.56.3",
+    "typescript": "^5.7.2",
     "zod": "^4.6.1"
   }
 }

@@ -295,7 +295,7 @@
     <div class="grid g2 sdk-grid" style="margin-top:28px">
 
       <div>
-        <div class="row" style="gap:8px"><span class="badge b-blue">MCP — one line, no code</span> <span class="trk">🔗 Bazantic track</span></div>
+        <div class="row" style="gap:8px"><span class="badge b-blue">MCP — one line, no code</span> <span class="trk">🔗 Bazantic — any agent integrates easily</span></div>
         <h3 style="margin:12px 0 6px">Any agent adopts NotYet</h3>
         <p class="small" style="margin:0 0 14px">Add one MCP server and any agent — Claude, Cursor, a LangChain bot — gets time-gated spend authority. <b>Three of the four tools are read-only and need no config.</b> A hacked caller can still spend only the one period whose time has come.</p>
         <div class="term" style="max-width:none">
@@ -315,14 +315,15 @@ notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim"
       </div>
 
       <div>
-        <div class="row" style="gap:8px"><span class="badge b-violet">SDK — build the agent</span> <span class="trk">⚡ Hedera · 🔑 Ledger</span></div>
+        <div class="row" style="gap:8px"><span class="badge b-violet">SDK</span> <span class="trk">📦 publicly usable · on npm</span></div>
         <h3 style="margin:12px 0 6px">Or drive it yourself</h3>
         <p class="small" style="margin:0 0 14px">Building the agent loop directly? Import the SDK: read the schedule, verify the Ledger signature, unlock on time, and settle — the same primitives the MCP server wraps.</p>
         <div class="term" style="max-width:none">
           <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
             <span class="fn">agent/loop.ts</span></div>
-          <pre><span class="c-violet">import</span> { resolveSchedule, decryptCiphertext,
-  signWithdraw, withdraw, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"notyet"</span>
+          <pre><span class="c-dim">// npm i @keccak002/notyet</span>
+<span class="c-violet">import</span> { resolveSchedule, decryptCiphertext,
+  signWithdraw, withdraw, payX402, isNotYet } <span class="c-violet">from</span> <span class="c-green">"@keccak002/notyet"</span>
 
 <span class="c-dim">// 1 · read the rules from Hedera (HCS) + verify the issuer</span>
 <span class="c-blue">const</span> schedule = <span class="c-violet">await</span> resolveSchedule(topicId, trustedIssuer)

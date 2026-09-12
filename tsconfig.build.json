@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true
+  },
+  "include": [],
+  "files": ["sdk/public.ts"]
+}

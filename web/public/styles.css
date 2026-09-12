@@ -187,6 +187,12 @@
   /* section soft-alt background */
   .alt{background:var(--paper2)}
 
+  /* Integrate: equal-height side-by-side cards so the shorter one has no void */
+  .sdk-grid>div{display:flex;flex-direction:column;min-width:0}
+  .sdk-grid .term{margin:14px 0 0;flex:1 1 auto;display:flex;flex-direction:column;min-width:0}
+  .sdk-grid .term pre{flex:1 1 auto}
+  @media(max-width:780px){.sdk-grid .term{flex:0 0 auto}}
+
   footer{padding:56px 0 80px;border-top:1px solid var(--line);color:var(--dim);font-size:14.5px}
   footer a{color:var(--dim)}
   .tracks{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}

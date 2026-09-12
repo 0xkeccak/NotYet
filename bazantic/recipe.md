@@ -41,7 +41,7 @@ recipe with sponsor APIs" (≥1 other service).
 | NotYet | `getStatus` | List the schedule's periods and whether each is `locked` / `ready` / `paid`. |
 | NotYet | `unlockAndPay` | Unlock period `index` (returns **NOT_YET** before its drand round), withdraw from the on-chain PeriodVault, settle the x402 payment. |
 | NotYet | `getPrice` | The x402-gated service being paid (402 challenge until settled). |
-| Hedera Mirror | `getTransaction` | Independently confirm the settlement reached consensus — reads the public Hedera Mirror Node, a source the paying agent doesn't control. Final step. |
+| Hedera Mirror | `listAccountTransactions` | Read the merchant account's recent transactions on the public Hedera Mirror Node and confirm the settlement appears — independent confirmation, from a source the paying agent doesn't control. Final step. |
 
 If `unlockAndPay` returns `notYet:true`, the correct behavior is to **wait for the period's
 round and retry** — never to look for another key. That property is stated in the tool

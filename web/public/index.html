@@ -349,7 +349,7 @@
     </div>
 
     <p class="small" style="margin-top:22px">One chain, no bridge: the vault holds the money, the policy the agent must satisfy, <i>and</i> (via HCS) the audit log — there's nothing to bridge. A compromised agent can still spend at most one period's budget, and never a period whose window is closed.</p>
-    <p class="lead" style="margin-top:26px"><b>Why not Hedera's native scheduled transactions?</b> A scheduled transaction has to <i>exist</i> ahead of time — created, then held pending until it's signed or its time comes. The authority to spend already exists early; something is holding a live, future-dated transaction. Notyet schedules the opposite way: it locks the <b>key</b>, not the transaction. Until the round arrives there is nothing to hold, nothing to trigger early, and nothing to leak — the withdrawal can't even be signed, because its key doesn't exist yet.</p>
+    <p class="lead" style="margin-top:26px"><b>How Notyet improves on Hedera's scheduled transactions.</b> A scheduled transaction (HIP-423) is already a strong primitive — post a transfer <i>pending</i> and let it execute on time — and Notyet <b>builds on it</b>: in one settlement mode it posts exactly such a pending transfer. But on its own the pending transaction still waits on a signature that already exists, so the authority to spend is sitting there ahead of time. Notyet closes that gap by locking the <b>key</b>, not just the transaction: the pending transfer needs a signature whose key <i>doesn't exist</i> until its drand round. Same on-time execution — with nothing to trigger, leak, or coerce early in the meantime.</p>
   </div>
 </section>
 
@@ -417,9 +417,9 @@
 
         <div class="sched">
           <div class="row" style="justify-content:space-between;align-items:flex-start">
-            <div><b class="lbl">For comparison: a native scheduled transfer</b>
-              <span class="small">The model NotYet <b>replaces</b> — a Hedera scheduled transaction (HIP-423) posted <b>pending</b>. It works, but the transaction has to exist ahead of time; NotYet locks the <b>key</b> instead, so nothing exists to trigger early. Kept here so you can feel the difference.</span></div>
-            <span class="tag">HIP-423 · contrast</span>
+            <div><b class="lbl">For comparison: a plain scheduled transfer</b>
+              <span class="small">The model NotYet <b>builds on and hardens</b> — a Hedera scheduled transaction (HIP-423) posted <b>pending</b>. A solid primitive, but the transfer sits ready and only waits on time; NotYet adds the missing lock — it timelocks the <b>key</b> the transfer needs, so nothing can fire early. Kept here so you can feel the difference.</span></div>
+            <span class="tag">HIP-423 · hardened</span>
           </div>
           <div class="ctl">
             <span class="small">execute in</span>

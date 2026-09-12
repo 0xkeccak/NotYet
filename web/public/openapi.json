@@ -1,0 +1,202 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NotYet",
+    "version": "1.0.0",
+    "description": "Scheduled agent spend authority where each period's spend key does not exist until its time. An agent pays for a service through NotYet: it issues a timelocked schedule, waits until a period unlocks (before that, calls return NOT_YET), then settles a real x402 payment on Hedera from an on-chain PeriodVault whose withdrawals are gated by time + budget. A compromised caller can only ever spend the one period whose key currently exists.",
+    "contact": { "name": "NotYet", "url": "https://github.com/0xkeccak/NotYet" }
+  },
+  "servers": [{ "url": "https://notyet.up.railway.app", "description": "NotYet (Hedera testnet)" }],
+  "paths": {
+    "/api/issue": {
+      "post": {
+        "operationId": "issueSchedule",
+        "summary": "Issue a timelocked spend schedule",
+        "description": "Create a schedule of `count` periods. For each period a fresh spend key is generated, its address + budget + [start,end] window committed to the on-chain PeriodVault, and the key itself timelock-encrypted (tlock/drand) to a future round so it does not exist in usable form before its time. Returns the HCS topic and the vault the agent will spend from.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "count": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "Number of periods to schedule." },
+                  "periodSec": { "type": "integer", "minimum": 8, "maximum": 120, "default": 15, "description": "Seconds between successive period unlocks." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Schedule issued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topicId": { "type": "string", "example": "0.0.10498846", "description": "Hedera HCS topic carrying the schedule + ciphertexts." },
+                    "vaultId": { "type": "string", "nullable": true, "example": "0.0.10471808", "description": "PeriodVault contract id (vault mode)." },
+                    "mode": { "type": "string", "enum": ["vault", "accounts"], "description": "vault = on-chain PeriodVault money path; accounts = per-period account fallback." },
+                    "count": { "type": "integer" },
+                    "periods": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": { "type": "integer" },
+                          "vaultIndex": { "type": "integer", "description": "On-chain period index in the vault (vault mode)." },
+                          "round": { "type": "integer", "description": "drand round whose signature unlocks this period's key." },
+                          "unlockMs": { "type": "integer", "format": "int64", "description": "Wall-clock ms when the period unlocks." }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "description": "Cooling down (rate limit).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "operationId": "getStatus",
+        "summary": "List the current schedule's periods and their state",
+        "description": "Returns each period and whether it is locked (key does not exist yet), ready (unlocked, spendable), or paid. Poll this to know when a period can be paid.",
+        "responses": {
+          "200": {
+            "description": "Current schedule state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "topicId": { "type": "string", "nullable": true },
+                    "vaultId": { "type": "string", "nullable": true },
+                    "mode": { "type": "string", "enum": ["vault", "accounts"] },
+                    "periods": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": { "type": "integer" },
+                          "round": { "type": "integer" },
+                          "accountId": { "type": "string", "description": "On-chain artifact label (vault + committed index, or the period account)." },
+                          "hashscanAccount": { "type": "string", "format": "uri", "description": "HashScan link to the vault/account." },
+                          "state": { "type": "string", "enum": ["locked", "ready", "paid"] },
+                          "secondsToUnlock": { "type": "integer", "description": "Seconds until this period unlocks (0 if ready)." }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pay": {
+      "post": {
+        "operationId": "unlockAndPay",
+        "summary": "Unlock a period and settle an x402 payment through the vault",
+        "description": "Unlock period `index`'s timelocked key. Before its drand round this returns paid=false with notYet=true (the key does not exist yet). Once ready, NotYet signs a withdrawal with the unlocked key — the PeriodVault enforces the [start,end] window, the committed key's identity (ecrecover), and the budget on-chain — releases the funds, and pays the x402 service, returning the settlement.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["index"],
+                "properties": { "index": { "type": "integer", "description": "Period index to spend." } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment attempted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "paid": { "type": "boolean" },
+                    "notYet": { "type": "boolean", "description": "true if the period's key does not exist yet (not an error)." },
+                    "withdraw": { "type": "string", "format": "uri", "description": "HashScan link to the vault withdrawal (vault mode)." },
+                    "settlement": { "type": "string", "description": "x402 settlement transaction id on Hedera." },
+                    "hashscan": { "type": "string", "format": "uri", "description": "HashScan link to the settlement." },
+                    "data": { "type": "object", "description": "The paid service's response payload.", "additionalProperties": true },
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "No such period.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/price": {
+      "get": {
+        "operationId": "getPrice",
+        "summary": "x402-gated price feed (the service NotYet pays)",
+        "description": "A real x402-gated endpoint on Hedera testnet, settled through the keyless Blocky402 facilitator. Returns 402 Payment Required with an x402 challenge until paid, then 200 with the price feed.",
+        "responses": {
+          "200": {
+            "description": "Price feed (after payment).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pair": { "type": "string", "example": "HBAR/USD" },
+                    "price": { "type": "number", "example": 0.0712 },
+                    "ts": { "type": "string", "format": "date-time" },
+                    "source": { "type": "string", "example": "notyet-demo" }
+                  }
+                }
+              }
+            }
+          },
+          "402": { "description": "Payment Required — x402 v2 challenge in the PAYMENT-REQUIRED header (scheme exact, network hedera:testnet)." }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Service health + x402 configuration",
+        "responses": {
+          "200": {
+            "description": "Healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "network": { "type": "string", "example": "hedera:testnet" },
+                    "facilitator": { "type": "string", "example": "https://api.testnet.blocky402.com" },
+                    "payTo": { "type": "string", "example": "0.0.10436969" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } }
+      }
+    }
+  }
+}

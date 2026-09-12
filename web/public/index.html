@@ -496,15 +496,16 @@
         <div class="term" style="max-width:none">
           <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
             <span class="fn">add-notyet.sh</span></div>
-          <pre><span class="c-dim">// hosted (via the Bazantic gateway) — or local from the repo</span>
-claude mcp add <span class="c-blue">--transport</span> http notyet \
-  <span class="c-green">https://&lt;gateway&gt;.bazgateway.com/mcp</span>
+          <pre><span class="c-dim">// add the NotYet MCP server (one line)</span>
+claude mcp add notyet <span class="c-blue">--</span> npx tsx bazantic/mcp-server.ts
 
 <span class="c-dim">// then any agent calls these tools:</span>
 notyet_explain()              <span class="c-dim">// what it is + how to integrate</span>
 notyet_status(<span class="c-green">"0.0.123456"</span>)     <span class="c-dim">// locked | ready per period</span>
 notyet_verify(topicId, issuer) <span class="c-dim">// signed by who I trust?</span>
-notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim">// unlock → pay (NOT_YET if early)</span></pre>
+notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim">// unlock → pay (NOT_YET if early)</span>
+
+<span class="c-dim">// also hosted over HTTP via the Bazantic gateway (its own toolset)</span></pre>
         </div>
       </div>
 

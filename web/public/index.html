@@ -33,7 +33,7 @@
 <nav><div class="wrap nav">
   <div class="brand"><span class="dot">⏳</span> notyet</div>
   <div class="navlinks">
-    <a href="#how">How</a><a href="#flow" class="keep">Flow</a><a href="#why">Why</a><a href="#demo" class="keep">Demo</a><a href="#proof">Proof</a><a href="#sdk">Integrate</a>
+    <a href="#how">How</a><a href="#why">Why</a><a href="#demo" class="keep">Live demo</a><a href="#proof">Proof</a><a href="#sdk">Integrate</a>
     <button class="themebtn" id="theme" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
     <a class="btn ghost" href="https://github.com/0xkeccak/NotYet" target="_blank" style="padding:8px 16px">GitHub ↗</a>
   </div>
@@ -120,20 +120,6 @@
   </div>
 </section>
 
-<section id="flow">
-  <div class="wrap">
-    <p class="eyebrow">Run it live</p>
-    <h2 class="serif">One period, end to end — for real, on Hedera testnet.</h2>
-    <p class="lead" style="margin-top:16px">Not a slideshow. Press run and each step below executes against the live backend: it issues a real schedule, gets a real <span class="mono">NOT_YET</span> back, waits for the actual drand round, then withdraws and settles — with a <b>HashScan link at every step you can open and verify</b>.</p>
-    <div class="wf-controls">
-      <button class="btn amber" id="rfRun">▶&nbsp; Run it live</button>
-      <span class="wf-live" id="rfLive"></span>
-    </div>
-    <div class="rf" id="rfTrack"></div>
-    <p class="small" style="margin-top:18px">Takes ~20s (a real period has to unlock). Prefer to drive it yourself, step by step? Use the <a href="#demo">Live demo</a>. Every guarantee here is enforced on-chain — see <a href="#proof">Proof</a>.</p>
-  </div>
-</section>
-
 <section id="why">
   <div class="wrap">
     <p class="eyebrow">Why it matters</p>
@@ -163,71 +149,28 @@
   <div class="wrap">
     <p class="eyebrow">Live demo · Hedera testnet</p>
     <h2 class="serif">Issue a schedule. Watch a key refuse to exist.</h2>
-    <p class="lead" style="margin-top:16px">This runs for real against Hedera testnet — the <b>timelock in action</b>: issue a schedule, try a locked period → <span class="mono">NOT_YET</span>, then on its round unlock and pay a live x402 service, settled on HashScan. The same window + budget policy is enforced on-chain by the <b>PeriodVault</b> contract — see <a href="#proof">Proof</a>.</p>
+    <p class="lead" style="margin-top:16px">Real, on Hedera testnet — no slideshow. <b>One click</b> runs the whole loop: issue a schedule, hit a real <span class="mono">NOT_YET</span>, wait for the drand round, then unlock and pay — with a <b>HashScan link at every step</b>. Same window + budget policy, enforced on-chain by the <b>PeriodVault</b> — see <a href="#proof">Proof</a>.</p>
 
-    <div class="card scene-card" style="margin-top:26px">
-      <div class="head"><div><b>Pick a scenario</b> <span class="small">— a real budget an agent could run</span></div>
-        <div class="scene-select"><span class="small">Example</span><select id="scenario" aria-label="Pick an example scenario"></select></div>
-      </div>
-      <div class="body">
-        <div class="story" id="scenarioStory"></div>
-        <div class="ai" style="margin:14px 0 0">
-          <span class="sparkle">✦</span>
-          <input class="txt" id="aiText" type="text" placeholder="…or describe your own — e.g. “$5 each day for 5 days”" />
-          <button class="btn ghost" id="aiPlan" style="padding:9px 16px">Plan it</button>
-          <div class="parsed" id="aiParsed" style="display:none"></div>
-        </div>
-
-        <div class="sched">
-          <div class="row" style="justify-content:space-between;align-items:flex-start">
-            <div><b class="lbl">For comparison: a plain scheduled transfer</b>
-              <span class="small">The model NotYet <b>builds on and hardens</b> — a Hedera scheduled transaction (HIP-423) posted <b>pending</b>. A solid primitive, but the transfer sits ready and only waits on time; NotYet adds the missing lock — it timelocks the <b>key</b> the transfer needs, so nothing can fire early. Kept here so you can feel the difference.</span></div>
-            <span class="tag">HIP-423 · hardened</span>
-          </div>
-          <div class="ctl">
-            <span class="small">execute in</span>
-            <select id="schedWhen" aria-label="When to execute">
-              <option value="10">10 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option>
-            </select>
-            <span class="small">send</span>
-            <input id="schedAmt" type="number" value="0.02" step="0.01" min="0.01" max="0.1" aria-label="Amount in HBAR"/>
-            <span class="small">ℏ → merchant</span>
-            <button class="btn amber" id="schedCreate" style="padding:9px 16px">Schedule it</button>
-          </div>
-          <div id="schedOut" class="out" style="display:none"></div>
-        </div>
-      </div>
+    <div class="wf-controls">
+      <button class="btn amber" id="rfRun">▶&nbsp; Run it live</button>
+      <span class="wf-live" id="rfLive"></span>
     </div>
+    <div class="rf" id="rfTrack"></div>
 
-    <div class="row" style="justify-content:space-between;align-items:baseline;margin-top:30px;gap:10px">
-      <p class="kicker" style="margin:0">The six steps, at a glance</p>
-      <a class="small" href="#flow" style="border:0;color:var(--gold);font-weight:600">▶ watch it animate ↑</a>
-    </div>
-    <div class="flow" style="margin-top:12px">
-      <div class="step"><div class="n">STEP 1</div><div class="t">Issue</div><div class="d">Fund N periods, timelock each key, post to HCS.</div></div>
-      <div class="step"><div class="n">STEP 2</div><div class="t">Timelock</div><div class="d">Each key is sealed to a future drand round.</div></div>
-      <div class="step hot"><div class="n">STEP 3</div><div class="t">NOT_YET</div><div class="d">Try a locked period early → the key doesn't exist.</div></div>
-      <div class="step"><div class="n">STEP 4</div><div class="t">Unlock</div><div class="d">On its round, drand's signature decrypts the key.</div></div>
-      <div class="step"><div class="n">STEP 5</div><div class="t">Pay · x402</div><div class="d">The key signs a real Hedera settlement.</div></div>
-      <div class="step"><div class="n">STEP 6</div><div class="t">Audit</div><div class="d">One view key opens only its period's receipts.</div></div>
-    </div>
-
-    <div class="card" style="margin-top:22px">
+    <div class="card" style="margin-top:36px">
       <div class="head">
-        <div><b>1 · Issue</b> <span class="small">— owner pre-funds N periods, timelocks each key, posts to HCS</span></div>
+        <div><b>Or step through it yourself</b> <span class="small">— issue a schedule, try a locked period, then unlock &amp; pay, one at a time</span></div>
         <div class="row">periods <input id="count" type="number" value="3" min="1" max="5"/><button class="btn amber" id="issue">Issue schedule</button></div>
       </div>
-      <div class="body"><div id="issueOut" class="out" style="display:none"></div></div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="head"><div><b>2 · Agent</b> <span class="small">— each period unlocks on its drand round. Try early → NOT_YET.</span></div></div>
-      <div class="body"><div id="timeline"><p class="small">No schedule yet — click Issue.</p></div></div>
+      <div class="body">
+        <div id="issueOut" class="out" style="display:none"></div>
+        <div id="timeline" style="margin-top:12px"><p class="small">No schedule yet — click Issue, then try a locked period.</p></div>
+      </div>
     </div>
 
     <div class="card" style="margin-top:16px">
       <div class="head">
-        <div><b>3 · Audit</b> <span class="small">— one period's view key decrypts that period's receipts, nothing else</span></div>
+        <div><b>Audit</b> <span class="small">— one period's view key decrypts only that period's receipts, nothing else</span></div>
         <div class="row">period <input id="auditIdx" type="number" value="0" min="0" max="4"/><button class="btn ghost" id="audit">Decrypt</button></div>
       </div>
       <div class="body"><div id="auditOut" class="out" style="display:none"></div></div>
@@ -250,6 +193,19 @@
     <p class="eyebrow">Proof, not promises</p>
     <h2 class="serif">Nothing here is a slide.</h2>
     <p class="lead" style="margin-top:16px">Every claim on this page points at a live testnet artifact you can open right now — the signed schedule on Hedera, the on-device issuer signature, and a real settled payment.</p>
+
+    <p class="eyebrow" style="margin-top:34px">Built for three tracks — each load-bearing</p>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="card"><span class="badge b-green">⚡ Hedera</span>
+        <h3 style="margin:10px 0 6px">The payment rail</h3>
+        <p class="small" style="margin:0">A real x402 settlement through Blocky402, the <b>PeriodVault</b> that gates every spend by time + budget on-chain, and the HCS audit log — money, policy and receipts on one chain.</p></div>
+      <div class="card"><span class="badge b-violet">🔑 Ledger</span>
+        <h3 style="margin:10px 0 6px">The root of trust</h3>
+        <p class="small" style="margin:0">The device signs the schedule, co-signs any over-ceiling spend, and holds the audit view keys. The agent never holds authority it could leak or be coerced into using.</p></div>
+      <div class="card"><span class="badge b-blue">🔗 Bazantic</span>
+        <h3 style="margin:10px 0 6px">The reach</h3>
+        <p class="small" style="margin:0">The whole capability is an <b>MCP tool + hosted gateway</b>, so any agent adopts time-gated spend in one line and inherits the one-period blast radius — no custom code.</p></div>
+    </div>
 
     <p class="eyebrow" style="margin-top:34px">🔑 The device does three things only it can</p>
     <div class="grid g3" style="margin-top:14px">
@@ -314,7 +270,7 @@
     <div class="grid g2 sdk-grid" style="margin-top:28px">
 
       <div>
-        <span class="badge b-blue">MCP — one line, no code</span>
+        <div class="row" style="gap:8px"><span class="badge b-blue">MCP — one line, no code</span> <span class="trk">🔗 Bazantic track</span></div>
         <h3 style="margin:12px 0 6px">Any agent adopts NotYet</h3>
         <p class="small" style="margin:0 0 14px">Add one MCP server and any agent — Claude, Cursor, a LangChain bot — gets time-gated spend authority. <b>Three of the four tools are read-only and need no config.</b> A hacked caller can still spend only the one period whose time has come.</p>
         <div class="term" style="max-width:none">
@@ -334,7 +290,7 @@ notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim"
       </div>
 
       <div>
-        <span class="badge b-violet">SDK — build the agent</span>
+        <div class="row" style="gap:8px"><span class="badge b-violet">SDK — build the agent</span> <span class="trk">⚡ Hedera · 🔑 Ledger</span></div>
         <h3 style="margin:12px 0 6px">Or drive it yourself</h3>
         <p class="small" style="margin:0 0 14px">Building the agent loop directly? Import the SDK: read the schedule, verify the Ledger signature, unlock on time, and settle — the same primitives the MCP server wraps.</p>
         <div class="term" style="max-width:none">

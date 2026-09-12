@@ -192,7 +192,7 @@ app.post("/api/pay", async (req: Request, res: Response) => {
     }
     res.json({ paid: result.paid, withdraw: withdrawHashscan, ...p.paid });
   } catch (e: any) {
-    res.json({ paid: false, notYet: isNotYet(e), error: isNotYet(e) ? `NOT_YET — key for period ${p.index} does not exist until round ${p.round}` : e.message });
+    res.json({ paid: false, notYet: isNotYet(e), error: isNotYet(e) ? `NOT_YET — key for period ${p.index + 1} does not exist until round ${p.round}` : e.message });
   }
 });
 

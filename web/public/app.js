@@ -39,9 +39,9 @@ $("incidents").innerHTML=INC.map(i=>`<div class="card inc"><div class="row" styl
 
 // ---- run it live: a real end-to-end period against the backend ----
 const RF=[
- {who:"You + Ledger", ic:"🖊️", title:"Set the rule", desc:"Commit a real 1-period schedule to the on-chain vault and post it to HCS."},
- {who:"drand · tlock", ic:"🔒", title:"Lock to the future", desc:"The period's spend key is timelock-encrypted to a future drand round."},
- {who:"Agent", ic:"⛔", title:"Try early → NOT_YET", desc:"Spend the locked period right now. The key does not exist yet — this call really is refused."},
+ {who:"You + Ledger", ic:"🖊️", title:"Set the rule", desc:"Commit a real 2-period schedule to the on-chain vault and post it to HCS."},
+ {who:"drand · tlock", ic:"🔒", title:"Lock to the future", desc:"Each period's spend key is timelock-encrypted to its own future drand round."},
+ {who:"Agent", ic:"⛔", title:"Try early → NOT_YET", desc:"Reach for the still-locked second period. Its key does not exist yet — the call is really refused."},
  {who:"drand beacon", ic:"⏱️", title:"The clock ticks", desc:"Wait for the round. The public beacon is about to publish the key."},
  {who:"Hedera · Vault", ic:"⚡", title:"Withdraw within limits", desc:"Now unlocked — withdraw from the PeriodVault; window + budget enforced on-chain."},
  {who:"x402 · HCS", ic:"✅", title:"Pay & prove", desc:"Settle a real x402 payment on Hedera; a sealed receipt lands on the audit log."},
@@ -65,28 +65,32 @@ const RF=[
     live.innerHTML=`<span class="pulse" style="width:7px;height:7px"></span> live · Hedera testnet`;
     try{
       // 1 · issue a real schedule
-      set(0,"run"); result(0,"issuing — creating the HCS topic, committing the period on-chain…");
-      const iss=await api("/api/issue",{count:1,periodSec:16});
+      set(0,"run"); result(0,"issuing — creating the HCS topic, committing 2 periods on-chain…");
+      const iss=await api("/api/issue",{count:2,periodSec:24});
       if(iss.error) throw new Error(iss.error);
       const p=iss.periods[0], round=p.round;
+      const p2=iss.periods[1];
       const vLink=iss.vaultId?`https://hashscan.io/testnet/contract/${iss.vaultId}`:null;
       const tLink=iss.topicId?`https://hashscan.io/testnet/topic/${iss.topicId}`:null;
-      result(0,`<span class="ok">✓ committed</span> — ${iss.vaultId?`vault <b>${iss.vaultId}</b>`:`topic <b>${iss.topicId}</b>`}, 1 period\n`+
+      result(0,`<span class="ok">✓ committed</span> — ${iss.vaultId?`vault <b>${iss.vaultId}</b>`:`topic <b>${iss.topicId}</b>`}, <b>2 periods</b>\n`+
         [vLink&&`<a href="${vLink}" target="_blank">vault on HashScan ↗</a>`,tLink&&`<a href="${tLink}" target="_blank">HCS topic ↗</a>`].filter(Boolean).join("   ·   "));
       set(0,"done");
 
-      // 2 · locked to a future round
+      // 2 · locked to future rounds (two of them)
       set(1,"run"); await sleep(500);
       const c=curRound();
-      result(1,`key sealed to <b>drand round ${round.toLocaleString()}</b>\nbeacon is at round <b>${c.toLocaleString()}</b> — ${round>c?`<b>${round-c}</b> rounds away`:"already there"}. until then it exists for no one.`);
+      const secs0=Math.max(0,Math.round((p.unlockMs-Date.now())/1000));
+      const secs1=p2?Math.max(0,Math.round((p2.unlockMs-Date.now())/1000)):null;
+      result(1,`period 1 → <b>round ${round.toLocaleString()}</b> (~<b>${secs0}s</b>)`+(p2?`\nperiod 2 → <b>round ${p2.round.toLocaleString()}</b> (~<b>${secs1}s</b>)`:"")+
+        `\nbeacon is at round <b>${c.toLocaleString()}</b> — both keys are sealed to the future and exist for no one yet.`);
       set(1,"done");
 
-      // 3 · try early → real NOT_YET
+      // 3 · try the FUTURE period (2) early → guaranteed real NOT_YET
       set(2,"run"); await sleep(300);
-      result(2,"calling the vault now, while the period is still locked…");
-      const early=await api("/api/pay",{index:p.index});
+      result(2,"reaching for period 2 now, while its round is still in the future…");
+      const early=await api("/api/pay",{index:(p2?p2.index:p.index)});
       if(early.paid){ result(2,`<span class="no">unlocked faster than expected — skipping ahead</span>`); set(2,"done"); }
-      else { result(2,`<span class="rd">${early.error||"NOT_YET"}</span>\n<span class="ok">✓ exactly right</span> — a real server response, not a permission check. A hacked or hasty agent gets precisely this: nothing.`); set(2,"hot"); }
+      else { result(2,`<span class="rd">${early.error||"NOT_YET"}</span>\n<span class="ok">✓ exactly right</span> — a real server response, not a permission check. A hacked or hasty agent reaching for a future period gets precisely this: nothing.`); set(2,"hot"); }
 
       // 4 · wait for the real round
       set(3,"run");
@@ -111,16 +115,18 @@ const RF=[
       set(4,"done");
 
       set(5,"run"); await sleep(400);
+      const secs1b=p2?Math.max(0,Math.round((p2.unlockMs-Date.now())/1000)):null;
       result(5,`<span class="ok">✓ settled on Hedera</span>${pay.data?` — service returned: ${JSON.stringify(pay.data)}`:""}`+
         (pay.hashscan?`\n<a href="${pay.hashscan}" target="_blank">x402 settlement on HashScan ↗</a>`:"")+
-        `\nreceipt sealed to the audit log — opens only with the device-held view key.`);
+        `\nreceipt sealed to the audit log — opens only with the device-held view key.`+
+        (p2?`\n<span class="ok">blast radius held</span> — period 2's key still does not exist (round ${p2.round.toLocaleString()}, ~${secs1b}s away). Spending 1 could never touch 2.`:""));
       set(5,"done");
 
-      live.innerHTML=`<span style="color:var(--green);font-weight:600">✓ one period, spent within authority — every link above is real, on Hedera testnet.</span>`;
+      live.innerHTML=`<span style="color:var(--green);font-weight:600">✓ period 1 spent within authority — period 2's key still doesn't exist. Every link above is real, on Hedera testnet.</span>`;
       btn.disabled=false; btn.innerHTML="↻&nbsp; Run it again";
     }catch(e){
       const cur=rows.findIndex(r=>r.classList.contains("run")); if(cur>=0){rows[cur].classList.remove("run");rows[cur].classList.add("hot");result(cur,`<span class="rd">${(e.message||"error")}</span>`);}
-      live.innerHTML=`<span class="err">${/cool/i.test(e.message||"")?"the hosted demo is cooling down":"couldn't finish the live run"} — try again in a moment, or drive it yourself in the <a href="#demo">Live demo</a>.</span>`;
+      live.innerHTML=`<span class="err">${/cool/i.test(e.message||"")?"the hosted demo is cooling down":"couldn't finish the live run"} — try again in a moment, or step through it manually below.</span>`;
       btn.disabled=false; btn.innerHTML="↻&nbsp; Try again";
     }
     running=false;
@@ -172,103 +178,9 @@ $("audit").onclick=async()=>{
   $("auditOut").textContent=`period ${r.index}: ${r.receipts.length} receipt(s) decrypted\n`+r.receipts.map(x=>"  "+JSON.stringify(x)).join("\n")+`\n\nscoped: ${r.scopedProof}`;
 };
 
-// ---- AI-style scheduling: plain English → a schedule ----
-function planFromText(s){
-  s=(s||"").toLowerCase();
-  // amount only when there's a currency cue ($ or "dollars/usd/bucks") — not any stray number
-  const amtM=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)\s*(?:dollars?|usd|bucks?)/);
-  const durM=s.match(/(\d+)\s*(day|week|hour|shift|period|month)s?/);
-  const cadMap={daily:"day",weekly:"week",hourly:"hour"};
-  const cadRaw=(s.match(/\b(daily|weekly|hourly|day|week|hour|shift|period|month)\b/)||[])[1]||null;
-  let count=durM?parseInt(durM[1]):null;
-  if(count==null){if(/\bweek\b/.test(s))count=7;else if(/\bmonth\b/.test(s))count=30;}
-  return {amount:amtM?amtM[1]:null, count, cadence:cadRaw?(cadMap[cadRaw]||cadRaw):"period"};
-}
-$("aiPlan").onclick=()=>{
-  const raw=($("aiText").value||"").trim();
-  const p=planFromText(raw); const el=$("aiParsed"); el.style.display="block";
-  if(p.amount==null && p.count==null){ // nothing schedule-like — don't pretend
-    el.innerHTML='<span style="color:var(--dim)">Give me an amount and how many periods — e.g. “$5 each day for 5 days”, or “3 periods of $2”.</span>';
-    return;
-  }
-  const assumed=p.count==null; let count=p.count??3; const capped=count>5; count=Math.max(1,Math.min(5,count));
-  $("count").value=count;
-  const amt=p.amount?`$${p.amount}`:"a set budget";
-  el.textContent=`✦ Parsed → ${count} period${count>1?"s":""} of ${amt}, one per ${p.cadence}${assumed?" (assumed 3 — add “for N days” to set)":""}${capped?" (demo caps at 5)":""}. Now hit “Issue schedule”.`;
-};
-$("aiText").addEventListener("keydown",e=>{if(e.key==="Enter")$("aiPlan").click();});
-
-// ---- scheduled transfer (HIP-423, sign-on-unlock) ----
-let schedPoll=null;
-function renderSched(s){
-  const out=$("schedOut"); out.style.display="block";
-  if(s.error){out.innerHTML='<span class="err">'+s.error+'</span>';return;}
-  const acct=`<a class="small mono" href="${s.hashscanAccount}" target="_blank">${s.accountId}</a>`;
-  const schedLink=`<a class="small mono" href="${s.hashscanSchedule}" target="_blank">schedule ${s.scheduleId} ↗</a>`;
-  if(s.state==="executed"){
-    out.innerHTML=`<span class="c-green">✓ executed — ${s.amount} ℏ sent to the merchant on Hedera.</span>\nThe signature came from a key that did not exist when this transfer was scheduled.\n${schedLink}${s.executed?` · <a class="small" href="${s.executed.hashscan}" target="_blank">settlement ↗</a>`:""}`;
-    return;
-  }
-  if(s.state==="ready"){
-    out.innerHTML=`<span class="c-amber">round reached — the key now exists.</span> The pending transfer of ${s.amount} ℏ can be signed.\n${schedLink} · ${acct}\n<button class="btn amber" id="schedExec" style="margin-top:8px;padding:8px 16px">Execute now</button>`;
-    $("schedExec").onclick=schedExecute; return;
-  }
-  out.innerHTML=`<span class="c-amber">pending on Hedera — inert.</span> The ${s.amount} ℏ transfer is posted, but the key that must sign it <b>does not exist yet</b> (unlocks in ${s.secondsToUnlock}s).\n${schedLink} · ${acct}\n<button class="btn ghost" id="schedExec" style="margin-top:8px;padding:8px 16px">Try to execute early</button>`;
-  $("schedExec").onclick=schedExecute;
-}
-async function schedRefresh(){
-  const s=await api("/api/schedule/status");
-  if(s.none)return;
-  renderSched(s);
-  if(s.state==="executed"&&schedPoll){clearInterval(schedPoll);schedPoll=null;}
-}
-async function schedExecute(){
-  const b=$("schedExec"); if(b){b.disabled=true;b.textContent="signing…";}
-  const r=await api("/api/schedule/execute",{});
-  if(r.executed){await schedRefresh();}
-  else{$("schedOut").innerHTML='<span class="err">'+(r.error||"execution failed")+'</span>'+(r.notYet?"\nThat’s the point — come back when the round arrives and it signs itself in.":"");}
-}
-$("schedCreate").onclick=async()=>{
-  const btn=$("schedCreate");btn.disabled=true;btn.textContent="Scheduling…";
-  $("schedOut").style.display="block";$("schedOut").textContent="creating a funded account, timelocking its key, posting the pending scheduled transfer to Hedera…";
-  try{
-    const r=await api("/api/schedule",{seconds:Number($("schedWhen").value),amount:Number($("schedAmt").value)});
-    if(r.error)throw new Error(r.error);
-    renderSched({...r,state:"locked",executed:null});
-    if(schedPoll)clearInterval(schedPoll);
-    schedPoll=setInterval(schedRefresh,2000);
-  }catch(e){$("schedOut").innerHTML='<span class="err">'+e.message+'</span>';}
-  btn.disabled=false;btn.textContent="Schedule it";
-};
-schedRefresh(); // pick up an already-scheduled transfer on load
-
-// ---- example scenarios (pick one → it configures the demo) ----
-let demoCadence="week", demoPeriodSec=15;
-const SCENARIOS=[
- {label:"⚡ Quick demo (for the video) · unlocks in seconds", actor:"Owner → agent · compressed for the video",
-  budget:"$5 each period for 3 periods", count:3, cadence:"period", periodSec:8,
-  story:"The owner wants the agent to pay <b>next week</b> — but won't hand it the key today. So they seal a key for each period to a future moment and walk away. <b>For this video the clock is sped up:</b> a “week” becomes <b>~8 seconds</b>, so you can watch a period sit <b>locked → NOT_YET</b>, then unlock and pay on its round in real time. Hit <b>Plan it</b>, then <b>Issue schedule</b>."},
- {label:"You → AI assistant · weekly subscription", actor:"You → AI assistant",
-  budget:"$5 each week for 4 weeks", count:4, cadence:"week", periodSec:15,
-  story:"Your assistant pays $5/week for a data subscription. You sign the whole month <b>once</b> on your Ledger and walk away — you never hand it your wallet. Hacked this week? It can touch <b>this week's $5 only</b> — next week's key doesn't exist yet."},
- {label:"DAO / fund → trading bot · daily budget", actor:"DAO / fund → trading bot",
-  budget:"$5 each day for 5 days", count:5, cadence:"day", periodSec:12,
-  story:"A DAO funds a trading bot with a <b>daily allowance it can't front-run</b>. Compromised on day 3 → it loses one day, not the treasury."},
- {label:"Company → procurement agent · monthly", actor:"Finance → procurement agent",
-  budget:"one payment per month for 3 months", count:3, cadence:"month", periodSec:15,
-  story:"Finance <b>pre-signs the quarter</b> on a Ledger and leaves. No standing key sits on a server for anyone to steal or subpoena — each month's authority appears on schedule."},
- {label:"Research fleet → paid APIs · per shift", actor:"Research fleet → paid APIs",
-  budget:"one key per shift, 5 shifts", count:5, cadence:"shift", periodSec:12,
-  story:"Each shift gets its own x402 key that <b>dies at shift end</b>. A leaked key is worthless afterwards, and every call is logged to HCS for audit."},
-];
-$("scenario").innerHTML=SCENARIOS.map((s,i)=>`<option value="${i}">${s.label}</option>`).join("");
-function applyScenario(i){const s=SCENARIOS[i];
-  $("scenarioStory").innerHTML=`<span class="actor">${s.actor}</span>${s.story}`;
-  $("count").value=s.count; $("aiText").value=s.budget; $("aiParsed").style.display="none";
-  demoCadence=s.cadence; demoPeriodSec=s.periodSec;}
-$("scenario").onchange=()=>applyScenario(Number($("scenario").value));
-applyScenario(0);
-const cadTitle=()=>demoCadence.charAt(0).toUpperCase()+demoCadence.slice(1);
+// demo defaults (the scenario picker / AI-plan / HIP-423 panel were removed to keep it simple)
+const demoCadence="period", demoPeriodSec=15;
+const cadTitle=()=>"Period";
 
 // ---- recent settlements (real, from the merchant account on Hedera) ----
 function timeAgo(ms){const s=Math.max(0,(Date.now()-ms)/1000);

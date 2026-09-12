@@ -116,6 +116,7 @@
   .badge{font-family:var(--mono);font-size:10.5px;font-weight:500;padding:4px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.08em;display:inline-block}
   .b-amber{background:var(--yellow-tint);color:var(--gold)} .b-blue{background:rgba(47,109,246,.12);color:var(--blue)}
   .b-green{background:rgba(30,154,84,.13);color:var(--green)} .b-violet{background:rgba(122,92,255,.12);color:var(--violet)}
+  .trk{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--gold);background:var(--yellow-tint);white-space:nowrap;display:inline-block}
 
   /* number chip for plain-english / steps */
   .num{font-family:var(--serif);font-size:34px;color:var(--gold);line-height:1;display:block;margin-bottom:10px}

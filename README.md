@@ -165,6 +165,20 @@ ENS identity layer on the `ens` branch also uses `SEPOLIA_RPC_URL`, `ENS_OWNER_K
 
 ## SDK: integrate in 10 lines
 
+Published on npm — install and import:
+
+```bash
+npm i @keccak002/notyet
+```
+
+```ts
+import { resolveSchedule, decryptCiphertext, signWithdraw, withdraw, payX402 } from "@keccak002/notyet";
+```
+
+The package is the DMK-free core (timelock, Hedera x402 + HCS, PeriodVault, scoped receipts,
+schedule sign/verify, agent resolve). On-device Ledger signing (`signScheduleWithLedger`,
+vault-relay) lives in this repo — it needs the Ledger Device Management Kit and a device/emulator.
+
 Everything is one import away. There are only **three keys** to keep straight: the
 **issuer** (deploys + manages the vault, on a Ledger), the **agent account** (receives
 funds + pays the service), and the disposable **period keys** `k_i` (timelocked — they

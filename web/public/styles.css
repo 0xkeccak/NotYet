@@ -224,6 +224,16 @@
   .rf-result a{color:#7fb0ff;border-bottom:1px solid #7fb0ff45;font-weight:500}
   .rf-result a:hover{border-color:#7fb0ff}
   .rf-result b{color:#f2ecdd} .rf-result .ok{color:#5cd99a} .rf-result .no{color:#ffb347} .rf-result .rd{color:#ff7a6b}
+  .proofs{margin-top:24px;background:var(--card);border:1px solid var(--line2);border-left:3px solid var(--green);border-radius:14px;padding:20px 22px}
+  .proofs-head{font-weight:600;font-size:15px;color:var(--ink);margin-bottom:14px}
+  .proofs-head .small{font-weight:400;color:var(--dim)}
+  .proofs-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px}
+  .proofs-list li{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;padding-bottom:11px;border-bottom:1px solid var(--line)}
+  .proofs-list li:last-child{border-bottom:0;padding-bottom:0}
+  .proofs-list .p-label{flex:0 0 auto;min-width:230px;color:var(--ink2);font-size:14px}
+  .proofs-list a{font-family:var(--mono);font-size:12.5px;color:var(--blue);border-bottom:1px solid var(--line2);word-break:break-all}
+  .proofs-list a:hover{border-color:var(--blue)}
+  @media(max-width:560px){.proofs-list .p-label{min-width:0;flex-basis:100%}}
   .rf-row.idle{opacity:.5}
   .rf-row.run .rf-dot{border-color:var(--gold);color:var(--gold);box-shadow:0 0 0 5px var(--yellow-tint);animation:rfpulse 1.3s infinite}
   .rf-row.run .rf-title{color:var(--gold)}

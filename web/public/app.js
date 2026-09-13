@@ -64,9 +64,18 @@ const RF=[
     const dot=r.querySelector(".rf-dot");dot.textContent=cls==="done"?"✓":(i+1);}
   function result(i,html){const el=$("rfR"+i);el.innerHTML=html;rows[i].classList.add("show");}
   let running=false;
+  const proofsBox=$("rfProofs"), proofsList=$("rfProofsList");
+  const proofs=[];
+  function addProof(label,url){ if(!url)return; proofs.push({label,url}); }
+  function showProofs(){
+    if(!proofsBox||!proofs.length) return;
+    proofsList.innerHTML=proofs.map(p=>`<li><span class="p-label">${p.label}</span><a href="${p.url}" target="_blank" rel="noopener">${p.url.replace(/^https?:\/\//,"")} ↗</a></li>`).join("");
+    proofsBox.hidden=false;
+  }
   async function run(){
     if(running)return; running=true;
     btn.disabled=true; btn.innerHTML="Running on Hedera testnet…";
+    proofs.length=0; if(proofsBox){proofsBox.hidden=true; proofsList.innerHTML="";}
     rows.forEach((r,i)=>{r.classList.remove("show","run","done","hot");r.classList.add("idle");r.querySelector(".rf-dot").textContent=i+1;$("rfR"+i).innerHTML="";});
     live.innerHTML=`<span class="pulse" style="width:7px;height:7px"></span> live · Hedera testnet`;
     try{
@@ -80,6 +89,8 @@ const RF=[
       const tLink=iss.topicId?`https://hashscan.io/testnet/topic/${iss.topicId}`:null;
       result(0,`<span class="ok">✓ committed</span> — ${iss.vaultId?`vault <b>${iss.vaultId}</b>`:`topic <b>${iss.topicId}</b>`}, <b>2 periods</b>\n`+
         [vLink&&`<a href="${vLink}" target="_blank">vault on HashScan ↗</a>`,tLink&&`<a href="${tLink}" target="_blank">HCS topic ↗</a>`].filter(Boolean).join("   ·   "));
+      addProof("PeriodVault (on-chain treasury)",vLink);
+      addProof("HCS audit log (topic)",tLink);
       set(0,"done");
 
       // 2 · locked to future rounds (two of them)
@@ -118,6 +129,7 @@ const RF=[
       if(!pay.paid) throw new Error(pay.error||"payment failed");
       result(4,`<span class="ok">✓ released</span> from the vault — the on-chain policy passed.`+
         (pay.withdraw?`\n<a href="${pay.withdraw}" target="_blank">vault withdraw on HashScan ↗</a>`:""));
+      addProof("Vault withdraw (within window + budget)",pay.withdraw);
       set(4,"done");
 
       set(5,"run"); await sleep(400);
@@ -126,8 +138,10 @@ const RF=[
         (pay.hashscan?`\n<a href="${pay.hashscan}" target="_blank">x402 settlement on HashScan ↗</a>`:"")+
         `\nreceipt sealed to the audit log — opens only with the device-held view key.`+
         (p2?`\n<span class="ok">blast radius held</span> — period 2's key still does not exist (round ${p2.round.toLocaleString()}, ~${secs1b}s away). Spending 1 could never touch 2.`:""));
+      addProof("x402 settlement (paid API call)",pay.hashscan);
       set(5,"done");
 
+      showProofs();
       live.innerHTML=`<span style="color:var(--green);font-weight:600">✓ period 1 spent within authority — period 2's key still doesn't exist. Every link above is real, on Hedera testnet.</span>`;
       btn.disabled=false; btn.innerHTML="↻&nbsp; Run it again";
     }catch(e){

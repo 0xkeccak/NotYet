@@ -21,6 +21,15 @@ export {
   ROUND_PERIOD_SEC,
 } from "./tlock.js";
 
+// Timed secret release — seal any secret (API key, credential, token) to a future time
+export {
+  sealSecret,
+  openSecret,
+  secretStatus,
+  NotYetError,
+  type SealedSecret,
+} from "./secrets.js";
+
 // Hedera x402 payment + HCS log
 export { payX402, type SpendCredentials, type PayResult } from "./pay.js";
 export { createTopic, submitMessage, readMessages, type TopicMessage } from "./hcs.js";

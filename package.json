@@ -2,7 +2,7 @@
   "name": "@keccak002/notyet",
   "version": "1.0.0",
   "type": "module",
-  "description": "Scheduled agent spend authority where the key doesn't exist until its time. Timelock-encrypted (drand/tlock) per-period spend keys, settled via x402 on Hedera, gated on-chain by a PeriodVault.",
+  "description": "Scheduled agent authority where the key doesn't exist until its time — timelock-encrypted (drand/tlock) spend keys AND arbitrary secrets (API keys, credentials, tokens). Payments settle via x402 on Hedera, gated on-chain by a PeriodVault.",
   "license": "MIT",
   "author": "0xkeccak",
   "homepage": "https://notyet.up.railway.app",
@@ -22,6 +22,8 @@
     "tlock",
     "hedera",
     "spend-authority",
+    "secrets-management",
+    "api-keys",
     "ai-agents"
   ],
   "engines": {
@@ -47,6 +49,7 @@
     "service": "tsx service/server.ts",
     "web": "tsx web/server.ts",
     "demo": "tsx scripts/full-demo.ts",
+    "secret-demo": "tsx scripts/secret-demo.ts",
     "mcp": "tsx bazantic/mcp-server.ts",
     "gate": "tsx scripts/day1-gate.ts",
     "compile:vault": "tsx scripts/compile-vault.ts",

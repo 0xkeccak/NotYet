@@ -4,12 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Notyet — scheduled agent spend authority</title>
-<meta name="description" content="Scheduled agent spend authority where the key doesn't exist until its time. Timelock encryption (drand/tlock) + x402 on Hedera (money, audit + root-of-trust), signed on Ledger (DMK), callable by any agent over MCP." />
+<meta name="description" content="Scheduled agent authority where the key doesn't exist until its time — timelocked spend keys AND any secret (API keys, credentials, tokens). Timelock encryption (drand/tlock) + x402 on Hedera, signed on Ledger (DMK), callable by any agent over MCP." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Notyet" />
 <meta property="og:title" content="Notyet — Tuesday's key doesn't exist until Tuesday" />
-<meta property="og:description" content="Scheduled agent spend authority where each period's spend key is encrypted to the future — it can't be used, leaked, or coerced open before its time. Not by the agent. Not by you." />
+<meta property="og:description" content="Scheduled agent authority where each period's key — a spend key, or any secret like an API key or credential — is encrypted to the future and can't be used, leaked, or coerced open before its time. Not by the agent. Not by you." />
 <meta property="og:url" content="https://notyet.up.railway.app" />
 <meta property="og:image" content="https://notyet.up.railway.app/og.png" />
 <meta property="og:image:type" content="image/png" />
@@ -46,9 +46,9 @@
 <header class="wrap hero">
   <span class="flourish">ETHOnline 2026 · Hedera · Ledger · Bazantic</span>
   <h1>Tuesday's key <span class="hl">doesn't&nbsp;exist</span><br>until Tuesday.</h1>
-  <p class="herosub">Give an autonomous agent a budget on a schedule — where each period's spend key is
-    <b>encrypted to the future</b> and cannot be used, leaked, or coerced open before its time.
-    Not by the agent. Not by you.</p>
+  <p class="herosub">Give an autonomous agent a budget — <b>or any secret: an API key, a credential, a token</b> — on a
+    schedule, where each period's key is <b>encrypted to the future</b> and cannot be used, leaked, or
+    coerced open before its time. Not by the agent. Not by you.</p>
   <div class="cta">
     <a class="btn amber" href="#demo">Try the live demo</a>
     <a class="btn ghost" href="#how">How it works</a>
@@ -351,7 +351,26 @@ notyet_spend(topicId, issuer, <span class="c-blue">0</span>) <span class="c-dim"
       </div>
 
     </div>
-    <p class="small" style="margin-top:20px"><a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/recipe.md" target="_blank">Bazantic recipe ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/mcp-server.ts" target="_blank">mcp-server.ts ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet#sdk-integrate-in-10-lines" target="_blank">SDK in 10 lines ↗</a></p>
+
+    <div style="margin-top:28px">
+      <div class="row" style="gap:8px"><span class="badge b-green">Beyond payments</span> <span class="trk">🔑 same lock, any secret</span></div>
+      <h3 style="margin:12px 0 6px">A spend key is just one thing you can seal to a time</h3>
+      <p class="small" style="margin:0 0 14px">The same timelock hides <b>any secret</b> — an API key, a database credential, an OAuth token. Hand the agent the ciphertext up front; it gets <b>nothing</b> until the moment you scheduled. No secrets server to breach or coerce — a leaked ciphertext is useless before its time. Run it end to end with <span class="mono">npm run secret-demo</span>.</p>
+      <div class="term" style="max-width:none">
+        <div class="bar"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i>
+          <span class="fn">timed-secret.ts</span></div>
+        <pre><span class="c-dim">// npm i @keccak002/notyet</span>
+<span class="c-violet">import</span> { sealSecret, openSecret } <span class="c-violet">from</span> <span class="c-green">"@keccak002/notyet"</span>
+
+<span class="c-dim">// seal an API key to Monday 09:00 — give the ciphertext to the agent now</span>
+<span class="c-blue">const</span> sealed = <span class="c-violet">await</span> sealSecret(process.env.OPENAI_KEY, <span class="c-green">Date.parse("2026-09-15T09:00:00Z")</span>, <span class="c-green">"openai"</span>)
+
+<span class="c-dim">// before 09:00 → throws NOT_YET · after 09:00 → returns the key</span>
+<span class="c-blue">const</span> key = <span class="c-violet">await</span> openSecret(sealed)</pre>
+      </div>
+    </div>
+
+    <p class="small" style="margin-top:20px"><a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/recipe.md" target="_blank">Bazantic recipe ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet/blob/main/bazantic/mcp-server.ts" target="_blank">mcp-server.ts ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet#sdk-integrate-in-10-lines" target="_blank">SDK in 10 lines ↗</a> &nbsp;·&nbsp; <a href="https://github.com/0xkeccak/NotYet#not-just-payments--timed-secret-release" target="_blank">timed secret release ↗</a></p>
   </div>
 </section>
 

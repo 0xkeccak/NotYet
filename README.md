@@ -38,6 +38,32 @@ walks away. Each key unlocks itself on time. Stop issuing → the agent's future
 arrives. A kill switch with no kill message. And a hacked agent can only ever lose **one
 period's** balance — the rest of the keys still don't exist.
 
+## Not just payments — timed secret release
+
+A spend key is only *one* thing you can seal to a future time. The same primitive hides
+**any secret** — an API key, a database credential, an OAuth token, a signing key. Hand
+an agent the sealed secret up front and it still gets **nothing** until the moment you
+scheduled: not the agent, not the issuer, not drand. This is the honeypot-free
+alternative to a secrets vault that streams keys just-in-time — there is no server
+holding the plaintext to breach or coerce, and a leaked ciphertext is useless before its
+time.
+
+```ts
+import { sealSecret, openSecret } from "@keccak002/notyet";
+
+// Seal an API key to Monday 09:00 — give the ciphertext to the agent now.
+const sealed = await sealSecret(process.env.OPENAI_KEY!, Date.parse("2026-09-15T09:00:00Z"), "openai");
+
+// Before 09:00 → throws NOT_YET. After 09:00 → returns the key.
+const key = await openSecret(sealed);
+```
+
+Run it end to end (seals a key, reads `NOT_YET`, waits for the real drand round, opens it):
+
+```bash
+npm run secret-demo
+```
+
 ## How the pieces fit
 
 | Layer | Role | Proven by |

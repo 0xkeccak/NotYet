@@ -1,6 +1,6 @@
 {
   "name": "@keccak002/notyet",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "description": "Scheduled agent authority where the key doesn't exist until its time — timelock-encrypted (drand/tlock) spend keys AND arbitrary secrets (API keys, credentials, tokens). Payments settle via x402 on Hedera, gated on-chain by a PeriodVault.",
   "license": "MIT",

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/public/og.png" alt="notyet — Tuesday's key doesn't exist until Tuesday" width="820">
+</p>
+
 # Notyet ⏳
 
 **Scheduled agent spend authority where the key doesn't exist until its time.**

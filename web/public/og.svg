@@ -5,15 +5,25 @@
     <stop offset="60%" stop-color="#F4B408" stop-opacity="0"/>
   </radialGradient>
   <rect width="1200" height="630" fill="url(#g)"/>
-  <g font-family="'IBM Plex Mono', ui-monospace, monospace">
-    <text x="80" y="96" font-size="22" letter-spacing="6" fill="#E7B646">ETHONLINE 2026 · HEDERA · LEDGER · ENS</text>
+
+  <!-- logo mark + wordmark -->
+  <g transform="translate(80 60) scale(1.6)">
+    <path d="M5 4H19M5 20H19" stroke="#F2ECDD" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M6.6 4.6H17.4L13 12L17.4 19.4H6.6L11 12L6.6 4.6Z" stroke="#F2ECDD" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M7.7 5.2H16.3L12 10.6L7.7 5.2Z" fill="#F4B408"/>
+    <path d="M10.3 19.4H13.7L12 17L10.3 19.4Z" fill="#F4B408"/>
+    <path d="M12 11.2V14.4" stroke="#F4B408" stroke-width="1.5" stroke-linecap="round"/>
   </g>
-  <text x="76" y="250" font-size="104" fill="#F2ECDD">Tuesday's key</text>
-  <rect x="72" y="288" width="662" height="92" rx="8" fill="#F4B408"/>
-  <text x="80" y="358" font-size="104" fill="#1B1710">doesn't exist</text>
-  <text x="76" y="470" font-size="104" fill="#F2ECDD">until Tuesday.</text>
+  <text x="130" y="92" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="34" fill="#F2ECDD" letter-spacing="1">notyet</text>
+  <text x="130" y="120" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="16" letter-spacing="5" fill="#E7B646">ETHONLINE 2026 · HEDERA · LEDGER · BAZANTIC</text>
+
+  <text x="76" y="286" font-size="104" fill="#F2ECDD">Tuesday's key</text>
+  <rect x="72" y="324" width="662" height="92" rx="8" fill="#F4B408"/>
+  <text x="80" y="394" font-size="104" fill="#1B1710">doesn't exist</text>
+  <text x="76" y="506" font-size="104" fill="#F2ECDD">until Tuesday.</text>
+
   <g font-family="Arial, sans-serif">
-    <text x="80" y="556" font-size="30" fill="#9d9580">Scheduled agent spend authority — the key doesn't exist until its time.</text>
-    <text x="80" y="598" font-size="26" fill="#E7B646">⏳ notyet.up.railway.app</text>
+    <text x="80" y="576" font-size="27" fill="#9d9580">Scheduled agent spend authority — the key doesn't exist until its time.</text>
+    <text x="80" y="612" font-size="24" fill="#E7B646">notyet.up.railway.app</text>
   </g>
 </svg>

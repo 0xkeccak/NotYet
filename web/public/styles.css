@@ -48,8 +48,9 @@
        transition:background .12s,transform .12s;line-height:1}
   .themebtn:hover{background:rgba(127,116,90,.14);transform:translateY(-1px)}
   .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-size:23px;letter-spacing:-.01em;border:0}
+  .brand{display:flex;align-items:center;gap:8px;font-family:var(--serif);font-size:23px;letter-spacing:-.01em;border:0}
   .brand .dot{font-size:18px}
+  .brand .mark{flex:none;color:var(--ink);transform:translateY(-1px)}
   .navlinks{display:flex;gap:26px;font-size:14.5px;align-items:center}
   .navlinks a{color:var(--dim);border:0} .navlinks a:hover{color:var(--ink)}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:var(--paper);
